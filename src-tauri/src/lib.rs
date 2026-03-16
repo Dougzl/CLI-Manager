@@ -3,7 +3,9 @@
 mod commands;
 mod pty;
 
+use log::LevelFilter;
 use tauri_plugin_sql::{Builder as SqlBuilder, Migration, MigrationKind};
+use tauri_plugin_log::{Builder as LogBuilder, Target, TargetKind, TimezoneStrategy};
 
 fn migrations() -> Vec<Migration> {
     vec![
@@ -96,7 +98,42 @@ fn migrations() -> Vec<Migration> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let debug_logs = cfg!(debug_assertions)
+        || matches!(
+            std::env::var("CLI_MANAGER_DEBUG")
+                .unwrap_or_default()
+                .to_lowercase()
+                .as_str(),
+            "1" | "true" | "yes" | "on"
+        );
+    let log_level = if debug_logs {
+        LevelFilter::Debug
+    } else {
+        LevelFilter::Info
+    };
+
     tauri::Builder::default()
+        .plugin(
+            LogBuilder::new()
+                .level(log_level)
+                .timezone_strategy(TimezoneStrategy::UseLocal)
+                .targets([
+                    Target::new(TargetKind::LogDir {
+                        file_name: Some("cli-manager.log".into()),
+                    }),
+                    Target::new(TargetKind::Webview),
+                    Target::new(TargetKind::Stdout),
+                ])
+                .build(),
+        )
+        .setup(move |_| {
+            log::set_max_level(log_level);
+            log::info!(
+                "CLI-Manager started (log_level={})",
+                if log_level == LevelFilter::Debug { "debug" } else { "info" }
+            );
+            Ok(())
+        })
         .plugin(tauri_plugin_dialog::init())
         .manage(pty::manager::PtyManager::new())
         .plugin(tauri_plugin_shell::init())
@@ -113,7 +150,9 @@ pub fn run() {
             commands::terminal::pty_resize,
             commands::terminal::pty_close,
             commands::terminal::pty_status,
+            commands::logging::set_debug_logging,
             commands::fs::check_paths_exist,
+            commands::shell::open_windows_terminal,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -12,17 +12,8 @@
     "sql:allow-execute",
     "sql:allow-select",
     "store:default",
+    "log:default",
     "shell:default",
-    {
-      "identifier": "shell:allow-spawn",
-      "allow": [
-        {
-          "name": "wt",
-          "cmd": "wt.exe",
-          "args": true
-        }
-      ]
-    },
     "dialog:default"
   ]
 }

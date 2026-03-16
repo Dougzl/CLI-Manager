@@ -20,6 +20,7 @@ const SHORTCUT_LABELS: Record<ShortcutAction, string> = {
   closeTerminal: "关闭终端",
   nextTab: "下一个标签",
   prevTab: "上一个标签",
+  commandPalette: "命令面板",
 };
 
 const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
@@ -113,6 +114,7 @@ function GeneralTab() {
   const fontFamily = useSettingsStore((s) => s.fontFamily);
   const defaultShell = useSettingsStore((s) => s.defaultShell);
   const useExternalTerminal = useSettingsStore((s) => s.useExternalTerminal);
+  const debugMode = useSettingsStore((s) => s.debugMode);
   const setTheme = useSettingsStore((s) => s.setTheme);
   const update = useSettingsStore((s) => s.update);
 
@@ -197,6 +199,24 @@ function GeneralTab() {
           className="switch"
           data-on={useExternalTerminal ? "true" : "false"}
           onClick={() => update("useExternalTerminal", !useExternalTerminal)}
+        >
+          <span className="switch-thumb" />
+        </button>
+      </div>
+
+      {/* Debug mode */}
+      <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-1">
+          <span className="text-xs" style={{ color: "var(--text-secondary)" }}>调试模式</span>
+          <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+            打开后记录更多日志（%LOCALAPPDATA%\\com.cli-manager.app\\logs\\cli-manager.log）
+          </span>
+        </div>
+        <button
+          className="switch"
+          data-on={debugMode ? "true" : "false"}
+          onClick={() => update("debugMode", !debugMode)}
+          title="开启或关闭调试日志"
         >
           <span className="switch-thumb" />
         </button>
@@ -291,6 +311,7 @@ function ShortcutsTab() {
       closeTerminal: "Ctrl+W",
       nextTab: "Ctrl+Tab",
       prevTab: "Ctrl+Shift+Tab",
+      commandPalette: "Ctrl+P",
     });
     setRecording(null);
   };

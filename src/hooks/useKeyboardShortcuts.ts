@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useTerminalStore } from "../stores/terminalStore";
 import { useSettingsStore } from "../stores/settingsStore";
+import { useCommandPaletteStore } from "../components/CommandPalette";
 
 /** Convert a KeyboardEvent to a combo string like "Ctrl+Shift+T" */
 export function eventToCombo(e: KeyboardEvent): string {
@@ -30,12 +31,19 @@ export function useKeyboardShortcuts() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      const combo = eventToCombo(e);
+      if (!combo) return;
+
+      // Command palette toggle works regardless of focus context
+      if (combo === shortcuts.commandPalette) {
+        e.preventDefault();
+        useCommandPaletteStore.getState().toggle();
+        return;
+      }
+
       // Skip if focus is inside an input/textarea/select
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-
-      const combo = eventToCombo(e);
-      if (!combo) return;
 
       if (combo === shortcuts.newTerminal) {
         e.preventDefault();

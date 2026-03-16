@@ -55,6 +55,49 @@ export function XTermTerminal({ sessionId, fontSize = 14, fontFamily = "Cascadia
     fitAddon.fit();
     terminalRef.current = terminal;
 
+    const copySelection = async () => {
+      const selection = terminal.getSelection();
+      if (!selection) return;
+      try {
+        await navigator.clipboard.writeText(selection);
+      } catch {
+        const textarea = document.createElement("textarea");
+        textarea.value = selection;
+        textarea.setAttribute("readonly", "true");
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+          document.execCommand("copy");
+        } finally {
+          document.body.removeChild(textarea);
+        }
+      }
+    };
+
+    terminal.attachCustomKeyEventHandler((e) => {
+      if (e.type !== "keydown" || !e.ctrlKey || e.shiftKey || e.altKey || e.metaKey) return true;
+      const key = e.key.toLowerCase();
+      if (key === "c" && terminal.hasSelection()) {
+        e.preventDefault();
+        void copySelection();
+        terminal.clearSelection();
+        return false;
+      }
+      if (key === "v") {
+        e.preventDefault();
+        navigator.clipboard.readText().then((text) => {
+          if (text) {
+            invoke("pty_write", { sessionId, data: text }).catch(console.error);
+            inputBuffer.current += text;
+          }
+        }).catch(console.error);
+        return false;
+      }
+      return true;
+    });
+
     // Forward keyboard input to PTY and record command history
     const addCommand = useCommandHistoryStore.getState().addCommand;
     const getProjectId = () => useTerminalStore.getState().sessions.find((s) => s.id === sessionId)?.projectId ?? null;

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { TerminalTabs } from "./components/TerminalTabs";
+import { CommandPalette } from "./components/CommandPalette";
 import { useSettingsStore } from "./stores/settingsStore";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import "./App.css";
@@ -25,6 +26,7 @@ function App() {
       <main className="flex-1 flex flex-col" style={{ backgroundColor: "var(--bg-primary)" }}>
         <TerminalTabs />
       </main>
+      <CommandPalette />
     </div>
   );
 }

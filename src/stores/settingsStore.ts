@@ -1,8 +1,9 @@
 import { create } from "zustand";
 import { Store } from "@tauri-apps/plugin-store";
+import { invoke } from "@tauri-apps/api/core";
 
 export type ThemeMode = "dark" | "light" | "system";
-export type ShortcutAction = "newTerminal" | "closeTerminal" | "nextTab" | "prevTab";
+export type ShortcutAction = "newTerminal" | "closeTerminal" | "nextTab" | "prevTab" | "commandPalette";
 export type KeyboardShortcutMap = Record<ShortcutAction, string>;
 
 interface Settings {
@@ -12,6 +13,7 @@ interface Settings {
   defaultShell: string;
   sidebarWidth: number;
   useExternalTerminal: boolean;
+  debugMode: boolean;
   terminalThemeName: string;
   keyboardShortcuts: KeyboardShortcutMap;
 }
@@ -31,12 +33,14 @@ const DEFAULTS: Settings = {
   defaultShell: "powershell.exe",
   sidebarWidth: 280,
   useExternalTerminal: false,
+  debugMode: false,
   terminalThemeName: "auto",
   keyboardShortcuts: {
     newTerminal: "Ctrl+Shift+T",
     closeTerminal: "Ctrl+W",
     nextTab: "Ctrl+Tab",
     prevTab: "Ctrl+Shift+Tab",
+    commandPalette: "Ctrl+P",
   },
 };
 
@@ -56,6 +60,14 @@ async function getStore() {
   return store;
 }
 
+async function applyDebugMode(enabled: boolean) {
+  try {
+    await invoke("set_debug_logging", { enabled });
+  } catch (err) {
+    console.warn("Failed to set debug logging:", err);
+  }
+}
+
 export const useSettingsStore = create<SettingsStore>((set, get) => ({
   ...DEFAULTS,
   resolvedTheme: resolveTheme(DEFAULTS.theme),
@@ -71,7 +83,12 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       }
     }
     const theme = (entries.theme as ThemeMode) ?? DEFAULTS.theme;
+    const debugMode = (entries.debugMode as boolean) ?? DEFAULTS.debugMode;
+    if (entries.keyboardShortcuts) {
+      entries.keyboardShortcuts = { ...DEFAULTS.keyboardShortcuts, ...entries.keyboardShortcuts };
+    }
     set({ ...entries, resolvedTheme: resolveTheme(theme), loaded: true });
+    void applyDebugMode(debugMode);
 
     // Listen for system theme changes
     window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
@@ -86,6 +103,9 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     const s = await getStore();
     await s.set(key, value);
     set({ [key]: value } as Partial<SettingsStore>);
+    if (key === "debugMode") {
+      void applyDebugMode(value as boolean);
+    }
   },
 
   setTheme: async (mode) => {

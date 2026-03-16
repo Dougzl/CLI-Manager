@@ -1,5 +1,39 @@
 # Changelog
 
+## [V0.0.3] - 2026-03-16
+
+### P2 功能扩展
+
+#### 3.2 终端分屏
+- 新增 `src/components/SplitTerminalView.tsx` — 分屏渲染组件，支持水平/垂直分割，可拖拽分隔条调整比例（20%-80%）
+- 修改 `src/stores/terminalStore.ts` — 新增 `SplitState` 类型、`splits` 状态、`splitTerminal`/`unsplitTerminal`/`setSplitRatio` 方法
+- 修改 `src/components/TerminalTabs.tsx` — 用 SplitTerminalView 替换直接渲染，右键菜单增加分屏/取消分屏选项
+
+#### 3.3 命令面板（Ctrl+P）
+- 新增 `src/components/CommandPalette.tsx` — 全局命令面板，模糊搜索项目/命令模板/操作，键盘导航（↑↓ 选择、Enter 执行、Escape 关闭）
+- 修改 `src/hooks/useKeyboardShortcuts.ts` — `Ctrl+P` 触发命令面板，不受输入框焦点影响
+- 修改 `src/stores/settingsStore.ts` — 新增 `commandPalette` 快捷键，加载时合并新旧快捷键配置防止字段缺失
+- 修改 `src/components/SettingsModal.tsx` — 快捷键设置面板增加"命令面板"项
+- 修改 `src/App.tsx` — 挂载 CommandPalette 组件
+
+#### 终端 Tab 拖拽排序
+- 修改 `src/stores/terminalStore.ts` — 新增 `reorderSessions` 方法
+- 重写 `src/components/TerminalTabs.tsx` — 提取 `SortableTab` 组件，集成 dnd-kit 水平拖拽排序，5px 激活距离，拖拽半透明反馈
+
+### 外部终端增强
+- 新增 `src-tauri/src/commands/shell.rs` — `open_windows_terminal` Tauri command，支持多 Tab 批量打开、按项目 Shell 配置启动
+- 修改 `src/lib/externalTerminal.ts` — 前端 `openWindowsTerminal` 接口对接后端 command
+
+### 日志系统
+- 新增 `src-tauri/src/commands/logging.rs` — `set_debug_logging` command，支持运行时切换日志级别
+- 新增 `src/lib/logger.ts` — 前端日志桥接，`attachConsole` 接收 Rust 日志，`logInfo`/`logWarn`/`logError` 显式记录
+
+### Bug 修复
+- **[High]** `lib.rs` — 日志时区从 UTC 改为本地时区（`TimezoneStrategy::UseLocal`）
+- **[High]** `shell.rs` — 外部终端标题被 Shell 覆盖，添加 `--suppressApplicationTitle` 参数
+- **[High]** `XTermTerminal.tsx` — 终端内 Ctrl+V 粘贴无效，添加剪贴板读取并写入 PTY
+- **[High]** `logger.ts` — `wrapConsole` + `attachConsole` + Webview 日志目标形成递归死循环，移除 `wrapConsole` 修复
+
 ## [V0.0.2] - 2026-03-13
 
 ### P1 功能扩展

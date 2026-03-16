@@ -33,26 +33,30 @@ npm run tauri add <plugin>           # 安装 Tauri 插件
 ## 架构
 
 ### 前后端分工
-- **Rust 后端**（`src-tauri/src/`）：PTY 会话管理（多 Shell 支持）、文件系统操作（路径验证）
+- **Rust 后端**（`src-tauri/src/`）：PTY 会话管理（多 Shell 支持）、文件系统操作（路径验证）、外部终端调用
 - **前端**（`src/`）：项目 CRUD 通过 `@tauri-apps/plugin-sql` 直接操作 SQLite，UI 渲染和状态管理
 
 ### IPC 通信
-- 前端 → 后端：`invoke('pty_create' | 'pty_write' | 'pty_resize' | 'pty_close' | 'check_paths_exist', args)`
+- 前端 → 后端：`invoke('pty_create' | 'pty_write' | 'pty_resize' | 'pty_close' | 'check_paths_exist' | 'open_windows_terminal' | 'set_debug_logging', args)`
   - `pty_create` 接受 `shell` 参数指定 Shell 类型
   - `check_paths_exist` 批量验证项目路径有效性
+  - `open_windows_terminal` 批量打开外部终端 Tab
 - 后端 → 前端：`app_handle.emit("pty-output-{sessionId}", data)` 推送 PTY 输出
 
 ### 关键目录
 ```
 src/
-  components/       # React 组件（Sidebar, TerminalTabs, XTermTerminal, ConfigModal, CommandHistoryPanel）
-  stores/           # Zustand stores（projectStore, terminalStore, settingsStore, commandHistoryStore）
-  lib/              # 工具（db.ts 数据库连接, types.ts 类型定义, externalTerminal.ts 外部终端）
+  components/       # React 组件（Sidebar, TerminalTabs, SplitTerminalView, XTermTerminal, CommandPalette, ConfigModal, CommandHistoryPanel）
+  stores/           # Zustand stores（projectStore, terminalStore, settingsStore, commandHistoryStore, templateStore）
+  hooks/            # React hooks（useKeyboardShortcuts）
+  lib/              # 工具（db.ts 数据库连接, types.ts 类型定义, externalTerminal.ts 外部终端, logger.ts 日志, terminalThemes.ts 终端主题）
 src-tauri/src/
   lib.rs            # Tauri 入口，插件注册，migrations（v1-v5）
   commands/         # Tauri command handlers
     terminal.rs     # PTY 相关 commands（pty_create 支持 shell 参数）
     fs.rs           # 文件系统 commands（check_paths_exist）
+    shell.rs        # 外部终端 commands（open_windows_terminal）
+    logging.rs      # 日志 commands（set_debug_logging）
   pty/
     manager.rs      # PtyManager：ConPTY 会话生命周期管理，多 Shell 支持
 ```
@@ -61,4 +65,4 @@ src-tauri/src/
 - SQLite 表：`projects`（项目配置，含 shell 字段）、`groups`（项目分组）、`command_templates`（命令模板）、`command_history`（命令历史）
 - migrations 定义在 `src-tauri/src/lib.rs`（v1-v5）
 - 前端通过 `@tauri-apps/plugin-sql` 的 `Database.load("sqlite:cli-manager.db")` 直接执行 SQL
-- 前端依赖 `@dnd-kit/core` + `@dnd-kit/sortable` 实现拖拽排序
+- 前端依赖 `@dnd-kit/core` + `@dnd-kit/sortable` 实现拖拽排序（侧边栏项目 + 终端 Tab）

@@ -5,6 +5,12 @@ import type { TerminalSession } from "../lib/types";
 
 export type SessionStatus = "running" | "exited" | "error";
 
+export interface SplitState {
+  direction: "horizontal" | "vertical";
+  secondSessionId: string;
+  ratio: number;
+}
+
 interface PtyStatusPayload {
   status: string;
   exit_code: number | null;
@@ -15,9 +21,14 @@ interface TerminalStore {
   activeSessionId: string | null;
   sessionStatuses: Record<string, SessionStatus>;
   statusListeners: Record<string, UnlistenFn>;
+  splits: Record<string, SplitState>;
   createSession: (projectId?: string, cwd?: string, title?: string, startupCmd?: string, envVars?: Record<string, string>, shell?: string) => Promise<string>;
   closeSession: (id: string) => Promise<void>;
   setActive: (id: string) => void;
+  reorderSessions: (fromId: string, toId: string) => void;
+  splitTerminal: (sessionId: string, direction: "horizontal" | "vertical", cwd?: string, shell?: string) => Promise<void>;
+  unsplitTerminal: (sessionId: string) => Promise<void>;
+  setSplitRatio: (sessionId: string, ratio: number) => void;
 }
 
 export const useTerminalStore = create<TerminalStore>((set, get) => ({
@@ -25,6 +36,7 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
   activeSessionId: null,
   sessionStatuses: {},
   statusListeners: {},
+  splits: {},
 
   createSession: async (projectId, cwd, title, startupCmd, envVars, shell) => {
     const sessionId = await invoke<string>("pty_create", {
@@ -38,7 +50,6 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
       title: title ?? "Terminal",
     };
 
-    // Listen for status changes from Rust backend
     const unlisten = await listen<PtyStatusPayload>(`pty-status-${sessionId}`, (event) => {
       const status = event.payload.status as SessionStatus;
       set((state) => ({
@@ -53,7 +64,6 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
       statusListeners: { ...state.statusListeners, [sessionId]: unlisten },
     }));
 
-    // Auto-execute startup command after a brief delay for shell init
     if (startupCmd) {
       setTimeout(() => {
         invoke("pty_write", { sessionId, data: startupCmd + "\r" }).catch(console.error);
@@ -64,24 +74,104 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
   },
 
   closeSession: async (id) => {
-    // Clean up status listener
-    const listener = get().statusListeners[id];
-    listener?.();
+    const split = get().splits[id];
 
+    if (split) {
+      get().statusListeners[split.secondSessionId]?.();
+      await invoke("pty_close", { sessionId: split.secondSessionId }).catch(() => {});
+    }
+
+    get().statusListeners[id]?.();
     await invoke("pty_close", { sessionId: id });
+
     const remaining = get().sessions.filter((s) => s.id !== id);
-    const { [id]: _s, ...restStatuses } = get().sessionStatuses;
-    const { [id]: _l, ...restListeners } = get().statusListeners;
+    const newStatuses = { ...get().sessionStatuses };
+    const newListeners = { ...get().statusListeners };
+    const newSplits = { ...get().splits };
+
+    delete newStatuses[id];
+    delete newListeners[id];
+    delete newSplits[id];
+    if (split) {
+      delete newStatuses[split.secondSessionId];
+      delete newListeners[split.secondSessionId];
+    }
+
     set({
       sessions: remaining,
       activeSessionId:
         get().activeSessionId === id
           ? remaining[remaining.length - 1]?.id ?? null
           : get().activeSessionId,
-      sessionStatuses: restStatuses,
-      statusListeners: restListeners,
+      sessionStatuses: newStatuses,
+      statusListeners: newListeners,
+      splits: newSplits,
     });
   },
 
   setActive: (id) => set({ activeSessionId: id }),
+
+  reorderSessions: (fromId, toId) => {
+    const list = [...get().sessions];
+    const fromIdx = list.findIndex((s) => s.id === fromId);
+    const toIdx = list.findIndex((s) => s.id === toId);
+    if (fromIdx < 0 || toIdx < 0) return;
+    const [moved] = list.splice(fromIdx, 1);
+    list.splice(toIdx, 0, moved);
+    set({ sessions: list });
+  },
+
+  splitTerminal: async (sessionId, direction, cwd, shell) => {
+    if (get().splits[sessionId]) return;
+
+    const secondSessionId = await invoke<string>("pty_create", {
+      cwd: cwd ?? null,
+      envVars: null,
+      shell: shell ?? null,
+    });
+
+    const unlisten = await listen<PtyStatusPayload>(`pty-status-${secondSessionId}`, (event) => {
+      const status = event.payload.status as SessionStatus;
+      set((state) => ({
+        sessionStatuses: { ...state.sessionStatuses, [secondSessionId]: status },
+      }));
+    });
+
+    set((state) => ({
+      splits: {
+        ...state.splits,
+        [sessionId]: { direction, secondSessionId, ratio: 0.5 },
+      },
+      sessionStatuses: { ...state.sessionStatuses, [secondSessionId]: "running" },
+      statusListeners: { ...state.statusListeners, [secondSessionId]: unlisten },
+    }));
+  },
+
+  unsplitTerminal: async (sessionId) => {
+    const split = get().splits[sessionId];
+    if (!split) return;
+
+    get().statusListeners[split.secondSessionId]?.();
+    await invoke("pty_close", { sessionId: split.secondSessionId }).catch(() => {});
+
+    const newStatuses = { ...get().sessionStatuses };
+    const newListeners = { ...get().statusListeners };
+    const newSplits = { ...get().splits };
+    delete newStatuses[split.secondSessionId];
+    delete newListeners[split.secondSessionId];
+    delete newSplits[sessionId];
+
+    set({ sessionStatuses: newStatuses, statusListeners: newListeners, splits: newSplits });
+  },
+
+  setSplitRatio: (sessionId, ratio) => {
+    const split = get().splits[sessionId];
+    if (!split) return;
+    set((state) => ({
+      splits: {
+        ...state.splits,
+        [sessionId]: { ...split, ratio: Math.max(0.2, Math.min(0.8, ratio)) },
+      },
+    }));
+  },
 }));
