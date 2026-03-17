@@ -10,15 +10,17 @@ import { useTerminalStore } from "../stores/terminalStore";
 
 interface Props {
   sessionId: string;
+  isActive?: boolean;
   fontSize?: number;
   fontFamily?: string;
   resolvedTheme?: "dark" | "light";
   terminalThemeName?: string;
 }
 
-export function XTermTerminal({ sessionId, fontSize = 14, fontFamily = "Cascadia Code, Consolas, monospace", resolvedTheme = "dark", terminalThemeName = "auto" }: Props) {
+export function XTermTerminal({ sessionId, isActive = true, fontSize = 14, fontFamily = "Cascadia Code, Consolas, monospace", resolvedTheme = "dark", terminalThemeName = "auto" }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
+  const fitAddonRef = useRef<FitAddon | null>(null);
   const inputBuffer = useRef("");
 
   // Update theme when resolvedTheme or terminalThemeName changes (without recreating terminal)
@@ -27,6 +29,19 @@ export function XTermTerminal({ sessionId, fontSize = 14, fontFamily = "Cascadia
       terminalRef.current.options.theme = getTerminalTheme(terminalThemeName, resolvedTheme);
     }
   }, [resolvedTheme, terminalThemeName]);
+
+  // Refit terminal when tab becomes active
+  useEffect(() => {
+    if (isActive && fitAddonRef.current && containerRef.current) {
+      // Small delay to ensure display:block has taken effect and layout is computed
+      const timer = setTimeout(() => {
+        if (containerRef.current && containerRef.current.offsetWidth > 0) {
+          fitAddonRef.current?.fit();
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [isActive]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -54,6 +69,7 @@ export function XTermTerminal({ sessionId, fontSize = 14, fontFamily = "Cascadia
 
     fitAddon.fit();
     terminalRef.current = terminal;
+    fitAddonRef.current = fitAddon;
 
     const copySelection = async () => {
       const selection = terminal.getSelection();
@@ -134,9 +150,11 @@ export function XTermTerminal({ sessionId, fontSize = 14, fontFamily = "Cascadia
       unlisten = fn;
     });
 
-    // Resize observer
+    // Resize observer — skip fit when container is hidden (display:none)
     const resizeObserver = new ResizeObserver(() => {
-      fitAddon.fit();
+      if (containerRef.current && containerRef.current.offsetWidth > 0 && containerRef.current.offsetHeight > 0) {
+        fitAddon.fit();
+      }
     });
     resizeObserver.observe(containerRef.current);
 
@@ -151,6 +169,7 @@ export function XTermTerminal({ sessionId, fontSize = 14, fontFamily = "Cascadia
       unlisten?.();
       terminal.dispose();
       terminalRef.current = null;
+      fitAddonRef.current = null;
     };
   }, [sessionId, fontSize, fontFamily]);
 

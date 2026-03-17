@@ -5,11 +5,12 @@ import { useTerminalStore, type SplitState } from "../stores/terminalStore";
 interface Props {
   sessionId: string;
   split: SplitState | undefined;
+  isActive?: boolean;
   resolvedTheme: "dark" | "light";
   terminalThemeName: string;
 }
 
-export function SplitTerminalView({ sessionId, split, resolvedTheme, terminalThemeName }: Props) {
+export function SplitTerminalView({ sessionId, split, isActive, resolvedTheme, terminalThemeName }: Props) {
   const setSplitRatio = useTerminalStore((s) => s.setSplitRatio);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -45,7 +46,7 @@ export function SplitTerminalView({ sessionId, split, resolvedTheme, terminalThe
   );
 
   if (!split) {
-    return <XTermTerminal sessionId={sessionId} resolvedTheme={resolvedTheme} terminalThemeName={terminalThemeName} />;
+    return <XTermTerminal sessionId={sessionId} isActive={isActive} resolvedTheme={resolvedTheme} terminalThemeName={terminalThemeName} />;
   }
 
   const isH = split.direction === "horizontal";
@@ -55,7 +56,7 @@ export function SplitTerminalView({ sessionId, split, resolvedTheme, terminalThe
   return (
     <div ref={containerRef} className="w-full h-full flex" style={{ flexDirection: isH ? "row" : "column" }}>
       <div className="overflow-hidden" style={{ [isH ? "width" : "height"]: first }}>
-        <XTermTerminal sessionId={sessionId} resolvedTheme={resolvedTheme} terminalThemeName={terminalThemeName} />
+        <XTermTerminal sessionId={sessionId} isActive={isActive} resolvedTheme={resolvedTheme} terminalThemeName={terminalThemeName} />
       </div>
       <div
         onMouseDown={handleDragStart}
@@ -67,7 +68,7 @@ export function SplitTerminalView({ sessionId, split, resolvedTheme, terminalThe
         }}
       />
       <div className="overflow-hidden" style={{ [isH ? "width" : "height"]: second }}>
-        <XTermTerminal sessionId={split.secondSessionId} resolvedTheme={resolvedTheme} terminalThemeName={terminalThemeName} />
+        <XTermTerminal sessionId={split.secondSessionId} isActive={isActive} resolvedTheme={resolvedTheme} terminalThemeName={terminalThemeName} />
       </div>
     </div>
   );

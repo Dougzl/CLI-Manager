@@ -1,5 +1,13 @@
 # Changelog
 
+## [V0.0.4] - 2026-03-17
+
+### Bug 修复
+- **[High]** 终端 Tab 切换后内容混乱 — 切换 Tab 时 `display:none` 导致 ResizeObserver 向 PTY 发送错误尺寸（0 cols/rows），Shell 输出格式错乱，需等待十几秒才恢复
+  - `XTermTerminal.tsx` — ResizeObserver 回调增加 `offsetWidth/offsetHeight > 0` 守卫，隐藏 Tab 不再触发错误 resize
+  - `XTermTerminal.tsx` — 新增 `isActive` prop，Tab 激活时延迟 50ms 主动调用 `fitAddon.fit()` 恢复正确尺寸
+  - `SplitTerminalView.tsx` / `TerminalTabs.tsx` — 透传 `isActive` prop 至终端组件
+
 ## [V0.0.3] - 2026-03-16
 
 ### P2 功能扩展

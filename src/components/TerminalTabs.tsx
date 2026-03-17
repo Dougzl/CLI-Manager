@@ -258,7 +258,7 @@ export function TerminalTabs() {
             className="absolute inset-0"
             style={{ display: s.id === activeSessionId ? "block" : "none" }}
           >
-            <SplitTerminalView sessionId={s.id} split={splits[s.id]} resolvedTheme={resolvedTheme} terminalThemeName={terminalThemeName} />
+            <SplitTerminalView sessionId={s.id} split={splits[s.id]} isActive={s.id === activeSessionId} resolvedTheme={resolvedTheme} terminalThemeName={terminalThemeName} />
           </div>
         ))}
         {sessions.length === 0 && !useExternalTerminal && (
