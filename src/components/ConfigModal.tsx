@@ -4,6 +4,8 @@ import { useProjectStore } from "../stores/projectStore";
 import type { Project, Group } from "../lib/types";
 import { SHELL_OPTIONS } from "../lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { toast } from "sonner";
+import { logError } from "../lib/logger";
 
 interface Props {
   project?: Project;
@@ -87,7 +89,17 @@ export function ConfigModal({ project, defaultGroupId, onClose }: Props) {
       }
       onClose();
     } catch (err) {
-      setError(String(err));
+      const description = String(err);
+      setError(description);
+      toast.error(isEdit ? "修改终端失败" : "新增终端失败", { description });
+      logError("Failed to save project in ConfigModal", {
+        isEdit,
+        name: name.trim(),
+        path: path.trim(),
+        groupId,
+        shell,
+        err,
+      });
     } finally {
       setSubmitting(false);
     }

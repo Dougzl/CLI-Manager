@@ -14,6 +14,8 @@ import { TreeContext, type TreeActions } from "./TreeContext";
 import { TreeNodeItem } from "./TreeNodeItem";
 import { SidebarSkeleton } from "../ui/Skeleton";
 import { Folder, FolderPlus, Search, Plus, Settings, Terminal } from "lucide-react";
+import { toast } from "sonner";
+import { logError } from "../../lib/logger";
 
 export function Sidebar() {
   const { tree, projects, groups, searchQuery, setSearchQuery, fetchAll, deleteProject, createGroup, renameGroup, deleteGroup, projectHealth, reorderItems } = useProjectStore();
@@ -37,6 +39,7 @@ export function Sidebar() {
   const [newGroupParentId, setNewGroupParentId] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
@@ -86,7 +89,23 @@ export function Sidebar() {
     reorderItems(parentId, reordered);
   }, [tree, reorderItems]);
 
-  useEffect(() => { fetchAll().then(() => setInitialLoading(false)); }, [fetchAll]);
+  const loadProjects = useCallback(async () => {
+    try {
+      setLoadError(null);
+      await fetchAll();
+    } catch (err) {
+      const description = String(err);
+      setLoadError(description);
+      toast.error("项目加载失败", { description });
+      logError("Failed to fetch sidebar projects", err);
+    } finally {
+      setInitialLoading(false);
+    }
+  }, [fetchAll]);
+
+  useEffect(() => {
+    void loadProjects();
+  }, [loadProjects]);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -222,7 +241,25 @@ export function Sidebar() {
             </SortableContext>
           </DndContext>
 
-          {tree.length === 0 && (
+          {tree.length === 0 && loadError && (
+            <div className="flex flex-col items-center py-10 px-4 gap-3" style={{ color: "var(--text-muted)" }}>
+              <Terminal size={40} strokeWidth={1} style={{ opacity: 0.4 }} />
+              <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>项目加载失败</p>
+              <p className="text-xs text-center leading-relaxed break-all">{loadError}</p>
+              <button
+                onClick={() => {
+                  setInitialLoading(true);
+                  void loadProjects();
+                }}
+                className="mt-2 flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md"
+                style={{ backgroundColor: "var(--accent)", color: "#fff" }}
+              >
+                重试
+              </button>
+            </div>
+          )}
+
+          {tree.length === 0 && !loadError && (
             <div className="flex flex-col items-center py-10 px-4 gap-3" style={{ color: "var(--text-muted)" }}>
               <Terminal size={40} strokeWidth={1} style={{ opacity: 0.4 }} />
               <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>欢迎使用 CLI-Manager</p>

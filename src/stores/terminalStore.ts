@@ -1,7 +1,11 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { toast } from "sonner";
 import type { TerminalSession } from "../lib/types";
+import { logError } from "../lib/logger";
+import { useSettingsStore } from "./settingsStore";
+import { normalizeShellKey } from "../lib/shell";
 
 export type SessionStatus = "running" | "exited" | "error";
 
@@ -39,11 +43,29 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
   splits: {},
 
   createSession: async (projectId, cwd, title, startupCmd, envVars, shell) => {
-    const sessionId = await invoke<string>("pty_create", {
-      cwd: cwd ?? null,
-      envVars: envVars ?? null,
-      shell: shell ?? null,
-    });
+    const normalizedInputShell = normalizeShellKey(shell);
+    const normalizedDefaultShell = normalizeShellKey(useSettingsStore.getState().defaultShell);
+    const resolvedShell =
+      normalizedInputShell ?? (projectId ? null : (normalizedDefaultShell ?? null));
+
+    let sessionId: string;
+    try {
+      sessionId = await invoke<string>("pty_create", {
+        cwd: cwd ?? null,
+        envVars: envVars ?? null,
+        shell: resolvedShell,
+      });
+    } catch (err) {
+      const description = String(err);
+      toast.error("创建终端失败", { description });
+      logError("pty_create invoke failed", {
+        projectId: projectId ?? null,
+        cwd: cwd ?? null,
+        shell: resolvedShell,
+        err,
+      });
+      throw err;
+    }
     const session: TerminalSession = {
       id: sessionId,
       projectId,
@@ -124,11 +146,28 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
   splitTerminal: async (sessionId, direction, cwd, shell) => {
     if (get().splits[sessionId]) return;
 
-    const secondSessionId = await invoke<string>("pty_create", {
-      cwd: cwd ?? null,
-      envVars: null,
-      shell: shell ?? null,
-    });
+    const normalizedInputShell = normalizeShellKey(shell);
+    const normalizedDefaultShell = normalizeShellKey(useSettingsStore.getState().defaultShell);
+    const resolvedShell = normalizedInputShell ?? (normalizedDefaultShell ?? null);
+
+    let secondSessionId: string;
+    try {
+      secondSessionId = await invoke<string>("pty_create", {
+        cwd: cwd ?? null,
+        envVars: null,
+        shell: resolvedShell,
+      });
+    } catch (err) {
+      const description = String(err);
+      toast.error("创建分屏终端失败", { description });
+      logError("pty_create invoke failed for split terminal", {
+        sessionId,
+        cwd: cwd ?? null,
+        shell: resolvedShell,
+        err,
+      });
+      throw err;
+    }
 
     const unlisten = await listen<PtyStatusPayload>(`pty-status-${secondSessionId}`, (event) => {
       const status = event.payload.status as SessionStatus;

@@ -41,9 +41,18 @@ export function useKeyboardShortcuts() {
         return;
       }
 
-      // Skip if focus is inside an input/textarea/select
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      // Skip global shortcuts while user is typing/editing (including xterm textarea).
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        !!target?.closest(".xterm") ||
+        !!target?.closest("[contenteditable='true']")
+      ) {
+        return;
+      }
 
       if (combo === shortcuts.newTerminal) {
         e.preventDefault();
