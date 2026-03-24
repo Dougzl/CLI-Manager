@@ -13,11 +13,15 @@ import { openWindowsTerminal } from "../../lib/externalTerminal";
 import { TreeContext, type TreeActions } from "./TreeContext";
 import { TreeNodeItem } from "./TreeNodeItem";
 import { SidebarSkeleton } from "../ui/Skeleton";
-import { Folder, FolderPlus, Search, Plus, Settings, Terminal } from "lucide-react";
+import { BarChart3, Folder, FolderPlus, Search, Plus, Settings, Terminal } from "lucide-react";
 import { toast } from "sonner";
 import { logError } from "../../lib/logger";
 
-export function Sidebar() {
+interface SidebarProps {
+  onOpenStats?: () => void;
+}
+
+export function Sidebar({ onOpenStats }: SidebarProps) {
   const { tree, projects, groups, searchQuery, setSearchQuery, fetchAll, deleteProject, createGroup, renameGroup, deleteGroup, projectHealth, reorderItems } = useProjectStore();
   const createSession = useTerminalStore((s) => s.createSession);
   const sessions = useTerminalStore((s) => s.sessions);
@@ -283,7 +287,17 @@ export function Sidebar() {
       <div className="px-3 py-2 border-t" style={{ borderColor: "var(--border)" }}>
         <div className="flex items-center justify-between">
           <ThemeToggle />
-          <button onClick={() => setShowSettings(true)} className="flex items-center justify-center w-7 h-7 rounded-md hover:opacity-80 transition-opacity" style={{ color: "var(--text-muted)", backgroundColor: "var(--bg-tertiary)" }} title="设置"><Settings size={14} strokeWidth={1.5} /></button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={onOpenStats}
+              className="flex items-center justify-center w-7 h-7 rounded-md hover:opacity-80 transition-opacity"
+              style={{ color: "var(--text-muted)", backgroundColor: "var(--bg-tertiary)" }}
+              title="分析看板"
+            >
+              <BarChart3 size={14} strokeWidth={1.5} />
+            </button>
+            <button onClick={() => setShowSettings(true)} className="flex items-center justify-center w-7 h-7 rounded-md hover:opacity-80 transition-opacity" style={{ color: "var(--text-muted)", backgroundColor: "var(--bg-tertiary)" }} title="设置"><Settings size={14} strokeWidth={1.5} /></button>
+          </div>
         </div>
         <div className="flex items-center justify-between mt-3">
           <span className="text-xs" style={{ color: "var(--text-muted)" }}>外部终端</span>

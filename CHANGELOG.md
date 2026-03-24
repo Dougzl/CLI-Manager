@@ -1,6 +1,26 @@
 # Changelog
 
-## [V0.0.6] - 2026-03-24
+## [V0.0.4] - 2026-03-24
+
+### Phase P2 分析看板
+
+#### 历史统计后端
+- `src-tauri/src/commands/history.rs`：新增 `history_get_stats`，支持按来源/项目/时间范围聚合历史会话统计。
+- 统计维度包含：会话数、消息数、输入/输出 Token、项目活跃排行、模型占比、日级热力图数据。
+- `src-tauri/src/lib.rs`：注册 `history_get_stats` command。
+
+#### 前端数据与类型
+- `src/lib/types.ts`：新增 Stats 相关类型（项目排行、模型占比、热力图、整体 payload）。
+- `src/stores/historyStore.ts`：新增 `loadingStats`、`stats`、`loadStats`，并补充后端返回结构归一化。
+
+#### 分析看板 UI
+- 新增 `src/components/stats/StatsPanel.tsx`：统计卡片、项目排行、模型占比、日期会话清单。
+- 新增 `src/components/stats/TimelineHeatmap.tsx`：活跃热力图，支持点击日期。
+
+#### 入口与挂载调整
+- `src/components/sidebar/index.tsx`：新增看板入口按钮，位置在“设置”按钮左侧。
+- `src/App.tsx`：全局挂载 `StatsPanel`，避免只覆盖侧边栏区域。
+- `src/components/HistoryWorkspace.tsx`：移除历史详情区内的看板入口，防止入口重复。
 
 ### Phase P1 核心增强（不含 P1-1 Prompt Library）
 
@@ -25,11 +45,6 @@
 - `src/stores/templateStore.ts`：新增会话级模板（内存态）与生命周期清理逻辑
 - `src/components/CommandTemplatePanel.tsx`：模板创建支持全局/项目/会话作用域
 - `src/components/CommandPalette.tsx`：模板检索按当前项目 + 当前会话上下文合并
-
-#### 说明
-- 本版本变更摘要按要求不包含 `P1-1 Prompt Library（三级作用域）` 作为验收项。
-
-## [V0.0.5] - 2026-03-20
 
 ### Phase P0 验收（CLI History Hub）
 

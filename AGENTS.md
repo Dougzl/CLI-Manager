@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to coding agents when working with code in this repository.
 
 ## 项目概述
 
@@ -15,6 +15,9 @@ CLI-Manager 是一款 Windows 桌面应用，用于集中管理基于 PowerShell
 - Diff 滚动体验修复：代码块保留独立横向滚动容器与可见滚动条样式，避免整页横向空白拖动。
 - 后端历史解析增强：放宽 Codex tool-call patch 提取（`custom_tool_call`、`file-history-snapshot`）以提高 diff 命中率。
 - 模板作用域增强：命令模板支持全局/项目/会话（会话级模板仅在当前会话有效，随会话生命周期清理）。
+- 分析看板（Phase P2）：新增历史统计接口 `history_get_stats`，支持会话数/消息数/输入输出 Token 汇总、项目排行、模型占比、30 天热力图。
+- 分析看板 UI：新增 `StatsPanel` 与 `TimelineHeatmap`，支持按项目与时间范围筛选、点击热力图日期查看当天会话并跳转。
+- 入口调整：分析看板入口从“历史会话”内迁出，移动到侧边栏底部“设置”按钮左侧，并在 `App` 全局挂载弹层。
 - 说明：本次摘要按要求不包含 `P1-1 Prompt Library（三级作用域）` 作为验收项。
 
 ## 技术栈
@@ -44,11 +47,11 @@ npm run tauri add <plugin>           # 安装 Tauri 插件
 ## 架构
 
 ### 前后端分工
-- **Rust 后端**（`src-tauri/src/`）：仅负责 PTY 会话管理（创建/写入/调整大小/关闭 PowerShell 进程）
-- **前端**（`src/`）：项目 CRUD 通过 `@tauri-apps/plugin-sql` 直接操作 SQLite，UI 渲染和状态管理
+- **Rust 后端**（`src-tauri/src/`）：PTY 会话管理、历史会话索引/检索/统计聚合
+- **前端**（`src/`）：项目 CRUD、历史工作区、Diff/Prompt/Stats 视图渲染与交互状态管理
 
 ### IPC 通信
-- 前端 → 后端：`invoke('pty_create' | 'pty_write' | 'pty_resize' | 'pty_close', args)`
+- 前端 → 后端：`invoke('pty_create' | 'pty_write' | 'pty_resize' | 'pty_close' | 'history_list_sessions' | 'history_get_session' | 'history_search' | 'history_list_prompts' | 'history_get_stats', args)`
 - 后端 → 前端：`app_handle.emit("pty-output-{sessionId}", data)` 推送 PTY 输出
 
 ### 关键目录
@@ -61,6 +64,7 @@ src-tauri/src/
   lib.rs            # Tauri 入口，插件注册，migrations
   commands/         # Tauri command handlers
     terminal.rs     # PTY 相关 commands
+    history.rs      # 历史会话 list/get/search/prompts/stats
   pty/
     manager.rs      # PtyManager：ConPTY 会话生命周期管理
 ```

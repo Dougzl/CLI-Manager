@@ -7,6 +7,10 @@ import type {
   HistorySessionDetail,
   HistorySessionSummary,
   HistorySessionView,
+  HistoryStatsHeatmapDay,
+  HistoryStatsModelItem,
+  HistoryStatsPayload,
+  HistoryStatsProjectItem,
   PromptScope,
   HistorySource,
   HistorySourceFilter,
@@ -27,6 +31,7 @@ interface HistoryStore {
   loadingSessionDetail: boolean;
   searching: boolean;
   loadingPrompts: boolean;
+  loadingStats: boolean;
   sourceFilter: HistorySourceFilter;
   sessions: HistorySessionView[];
   activeSessionKey: string | null;
@@ -35,6 +40,7 @@ interface HistoryStore {
   sessionQuery: string;
   searchHits: HistorySearchHit[];
   prompts: HistoryPromptItem[];
+  stats: HistoryStatsPayload | null;
   focusedMessageIndex: number | null;
   focusedMessageSeq: number;
   metaMap: SessionMetaMap;
@@ -57,6 +63,7 @@ interface HistoryStore {
     sessionKey?: string | null;
     limit?: number;
   }) => Promise<void>;
+  loadStats: (options?: { projectKey?: string | null; rangeDays?: number }) => Promise<void>;
   openSessionAtMessage: (sessionKey: string, messageIndex: number) => Promise<void>;
   clearFocusedMessage: () => void;
   updateMeta: (sessionKey: string, patch: MetaPatchInput) => Promise<void>;
@@ -156,6 +163,64 @@ function normalizePrompt(raw: unknown): HistoryPromptItem {
   };
 }
 
+function normalizeStatsProject(raw: unknown): HistoryStatsProjectItem {
+  const rec = (raw ?? {}) as Record<string, unknown>;
+  return {
+    project_key: asString(rec.project_key ?? rec.projectKey),
+    sessions: asNumber(rec.sessions),
+    messages: asNumber(rec.messages),
+    input_tokens: asNumber(rec.input_tokens ?? rec.inputTokens),
+    output_tokens: asNumber(rec.output_tokens ?? rec.outputTokens),
+  };
+}
+
+function normalizeStatsModel(raw: unknown): HistoryStatsModelItem {
+  const rec = (raw ?? {}) as Record<string, unknown>;
+  return {
+    model: asString(rec.model),
+    sessions: asNumber(rec.sessions),
+    ratio: asNumber(rec.ratio),
+  };
+}
+
+function normalizeHeatmapDay(raw: unknown): HistoryStatsHeatmapDay {
+  const rec = (raw ?? {}) as Record<string, unknown>;
+  const sessionRefsRaw = rec.session_refs ?? rec.sessionRefs;
+  const sessionRefs = Array.isArray(sessionRefsRaw)
+    ? (sessionRefsRaw as unknown[])
+    : [];
+  return {
+    day_start_utc: asNumber(rec.day_start_utc ?? rec.dayStartUtc),
+    sessions: asNumber(rec.sessions),
+    messages: asNumber(rec.messages),
+    level: asNumber(rec.level),
+    session_refs: sessionRefs.map((item) => normalizeSummary(item)),
+  };
+}
+
+function normalizeStats(raw: unknown): HistoryStatsPayload {
+  const rec = (raw ?? {}) as Record<string, unknown>;
+  const projectRawValue = rec.project_ranking ?? rec.projectRanking;
+  const projectRaw = Array.isArray(projectRawValue)
+    ? (projectRawValue as unknown[])
+    : [];
+  const modelRawValue = rec.model_distribution ?? rec.modelDistribution;
+  const modelRaw = Array.isArray(modelRawValue)
+    ? (modelRawValue as unknown[])
+    : [];
+  const heatmapRaw = Array.isArray(rec.heatmap) ? (rec.heatmap as unknown[]) : [];
+  return {
+    range_days: asNumber(rec.range_days ?? rec.rangeDays),
+    total_sessions: asNumber(rec.total_sessions ?? rec.totalSessions),
+    total_messages: asNumber(rec.total_messages ?? rec.totalMessages),
+    total_input_tokens: asNumber(rec.total_input_tokens ?? rec.totalInputTokens),
+    total_output_tokens: asNumber(rec.total_output_tokens ?? rec.totalOutputTokens),
+    project_ranking: projectRaw.map((item) => normalizeStatsProject(item)),
+    model_distribution: modelRaw.map((item) => normalizeStatsModel(item)),
+    heatmap: heatmapRaw.map((item) => normalizeHeatmapDay(item)),
+  };
+}
+
 function normalizeSourceFilter(filter: HistorySourceFilter): HistorySource | null {
   if (filter === "all") return null;
   return filter;
@@ -226,6 +291,7 @@ export const useHistoryStore = create<HistoryStore>((set, get) => ({
   loadingSessionDetail: false,
   searching: false,
   loadingPrompts: false,
+  loadingStats: false,
   sourceFilter: "all",
   sessions: [],
   activeSessionKey: null,
@@ -234,6 +300,7 @@ export const useHistoryStore = create<HistoryStore>((set, get) => ({
   sessionQuery: "",
   searchHits: [],
   prompts: [],
+  stats: null,
   focusedMessageIndex: null,
   focusedMessageSeq: 0,
   metaMap: {},
@@ -393,6 +460,21 @@ export const useHistoryStore = create<HistoryStore>((set, get) => ({
       set({ prompts });
     } finally {
       set({ loadingPrompts: false });
+    }
+  },
+
+  loadStats: async (options) => {
+    set({ loadingStats: true });
+    try {
+      const source = normalizeSourceFilter(get().sourceFilter);
+      const statsRaw = await invoke<unknown>("history_get_stats", {
+        source,
+        projectKey: options?.projectKey?.trim() || null,
+        rangeDays: options?.rangeDays ?? 30,
+      });
+      set({ stats: normalizeStats(statsRaw) });
+    } finally {
+      set({ loadingStats: false });
     }
   },
 

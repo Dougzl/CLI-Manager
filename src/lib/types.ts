@@ -161,6 +161,39 @@ export interface HistorySessionView extends HistorySessionSummary {
   displayTitle: string;
 }
 
+export interface HistoryStatsProjectItem {
+  project_key: string;
+  sessions: number;
+  messages: number;
+  input_tokens: number;
+  output_tokens: number;
+}
+
+export interface HistoryStatsModelItem {
+  model: string;
+  sessions: number;
+  ratio: number;
+}
+
+export interface HistoryStatsHeatmapDay {
+  day_start_utc: number;
+  sessions: number;
+  messages: number;
+  level: number;
+  session_refs: HistorySessionSummary[];
+}
+
+export interface HistoryStatsPayload {
+  range_days: number;
+  total_sessions: number;
+  total_messages: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  project_ranking: HistoryStatsProjectItem[];
+  model_distribution: HistoryStatsModelItem[];
+  heatmap: HistoryStatsHeatmapDay[];
+}
+
 export const SHELL_OPTIONS = [
   { value: "powershell", label: "PowerShell" },
   { value: "cmd", label: "CMD" },

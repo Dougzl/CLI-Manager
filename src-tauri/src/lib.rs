@@ -177,6 +177,7 @@ pub fn run() {
             commands::history::history_get_session,
             commands::history::history_search,
             commands::history::history_list_prompts,
+            commands::history::history_get_stats,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

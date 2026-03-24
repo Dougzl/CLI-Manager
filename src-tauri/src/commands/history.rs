@@ -1,6 +1,7 @@
 use log::debug;
 use serde::Serialize;
 use serde_json::Value;
+use std::collections::{BTreeMap, HashMap};
 use std::env;
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader};
@@ -21,6 +22,15 @@ struct SessionSummaryScan {
     first_message: Option<String>,
     branch: Option<String>,
 }
+
+#[derive(Default)]
+struct SessionStatsScan {
+    input_tokens: u64,
+    output_tokens: u64,
+    dominant_model: Option<String>,
+}
+
+const DAY_MS: i64 = 24 * 60 * 60 * 1000;
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -84,6 +94,47 @@ pub struct HistoryPromptItem {
     pub message_index: usize,
     pub prompt: String,
     pub timestamp: Option<String>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryStatsProjectItem {
+    pub project_key: String,
+    pub sessions: usize,
+    pub messages: usize,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryStatsModelItem {
+    pub model: String,
+    pub sessions: usize,
+    pub ratio: f64,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryStatsHeatmapDay {
+    pub day_start_utc: i64,
+    pub sessions: usize,
+    pub messages: usize,
+    pub level: u8,
+    pub session_refs: Vec<HistorySessionSummary>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryStatsResponse {
+    pub range_days: usize,
+    pub total_sessions: usize,
+    pub total_messages: usize,
+    pub total_input_tokens: u64,
+    pub total_output_tokens: u64,
+    pub project_ranking: Vec<HistoryStatsProjectItem>,
+    pub model_distribution: Vec<HistoryStatsModelItem>,
+    pub heatmap: Vec<HistoryStatsHeatmapDay>,
 }
 
 #[tauri::command]
@@ -302,6 +353,133 @@ pub async fn history_list_prompts(
             .then(b.message_index.cmp(&a.message_index))
     });
     Ok(prompts)
+}
+
+#[tauri::command]
+pub async fn history_get_stats(
+    source: Option<String>,
+    project_key: Option<String>,
+    range_days: Option<usize>,
+) -> Result<HistoryStatsResponse, String> {
+    let range_days = range_days.unwrap_or(30).clamp(1, 180);
+    let target_project = project_key
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty());
+    let files = collect_session_files(source.as_deref());
+    let end_day = day_start_utc(now_millis());
+    let start_day = end_day - (range_days as i64 - 1) * DAY_MS;
+
+    let mut total_sessions = 0usize;
+    let mut total_messages = 0usize;
+    let mut total_input_tokens = 0u64;
+    let mut total_output_tokens = 0u64;
+    let mut project_map: HashMap<String, HistoryStatsProjectItem> = HashMap::new();
+    let mut model_map: HashMap<String, usize> = HashMap::new();
+    let mut day_map: BTreeMap<i64, HistoryStatsHeatmapDay> = BTreeMap::new();
+
+    for file_ref in files {
+        if let Some(project) = &target_project {
+            if &file_ref.project_key != project {
+                continue;
+            }
+        }
+
+        let summary = build_session_summary(&file_ref);
+        let day_start = day_start_utc(summary.updated_at);
+        if day_start < start_day || day_start > end_day {
+            continue;
+        }
+
+        let scan = scan_session_stats(&file_ref.path);
+        total_sessions += 1;
+        total_messages += summary.message_count;
+        total_input_tokens = total_input_tokens.saturating_add(scan.input_tokens);
+        total_output_tokens = total_output_tokens.saturating_add(scan.output_tokens);
+
+        let project_entry =
+            project_map
+                .entry(summary.project_key.clone())
+                .or_insert(HistoryStatsProjectItem {
+                    project_key: summary.project_key.clone(),
+                    sessions: 0,
+                    messages: 0,
+                    input_tokens: 0,
+                    output_tokens: 0,
+                });
+        project_entry.sessions += 1;
+        project_entry.messages += summary.message_count;
+        project_entry.input_tokens = project_entry.input_tokens.saturating_add(scan.input_tokens);
+        project_entry.output_tokens = project_entry.output_tokens.saturating_add(scan.output_tokens);
+
+        let model_name = scan
+            .dominant_model
+            .unwrap_or_else(|| "unknown".to_string());
+        *model_map.entry(model_name).or_insert(0) += 1;
+
+        let day_entry = day_map.entry(day_start).or_insert(HistoryStatsHeatmapDay {
+            day_start_utc: day_start,
+            sessions: 0,
+            messages: 0,
+            level: 0,
+            session_refs: Vec::new(),
+        });
+        day_entry.sessions += 1;
+        day_entry.messages += summary.message_count;
+        day_entry.session_refs.push(summary);
+    }
+
+    let mut project_ranking: Vec<HistoryStatsProjectItem> = project_map.into_values().collect();
+    project_ranking.sort_by(|a, b| {
+        b.sessions
+            .cmp(&a.sessions)
+            .then(b.messages.cmp(&a.messages))
+            .then(a.project_key.cmp(&b.project_key))
+    });
+
+    let mut model_distribution: Vec<HistoryStatsModelItem> = model_map
+        .into_iter()
+        .map(|(model, sessions)| HistoryStatsModelItem {
+            model,
+            sessions,
+            ratio: if total_sessions == 0 {
+                0.0
+            } else {
+                sessions as f64 / total_sessions as f64
+            },
+        })
+        .collect();
+    model_distribution.sort_by(|a, b| b.sessions.cmp(&a.sessions).then(a.model.cmp(&b.model)));
+
+    let max_day_sessions = day_map.values().map(|item| item.sessions).max().unwrap_or(0);
+    let mut heatmap = Vec::with_capacity(range_days);
+    for day_idx in 0..range_days {
+        let day_start = start_day + day_idx as i64 * DAY_MS;
+        if let Some(mut day) = day_map.remove(&day_start) {
+            day.session_refs
+                .sort_by(|a, b| b.updated_at.cmp(&a.updated_at).then(a.session_id.cmp(&b.session_id)));
+            day.level = calc_heat_level(day.sessions, max_day_sessions);
+            heatmap.push(day);
+        } else {
+            heatmap.push(HistoryStatsHeatmapDay {
+                day_start_utc: day_start,
+                sessions: 0,
+                messages: 0,
+                level: 0,
+                session_refs: Vec::new(),
+            });
+        }
+    }
+
+    Ok(HistoryStatsResponse {
+        range_days,
+        total_sessions,
+        total_messages,
+        total_input_tokens,
+        total_output_tokens,
+        project_ranking,
+        model_distribution,
+        heatmap,
+    })
 }
 
 fn build_session_summary(file_ref: &SessionFileRef) -> HistorySessionSummary {
@@ -588,6 +766,197 @@ fn read_session_messages(path: &Path) -> Result<Vec<HistoryMessage>, String> {
     }
 
     Ok(messages)
+}
+
+fn scan_session_stats(path: &Path) -> SessionStatsScan {
+    let file = match File::open(path) {
+        Ok(file) => file,
+        Err(_) => return SessionStatsScan::default(),
+    };
+
+    let mut input_tokens = 0u64;
+    let mut output_tokens = 0u64;
+    let mut model_hits: HashMap<String, usize> = HashMap::new();
+
+    for line in BufReader::new(file).lines().map_while(Result::ok) {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let Ok(value) = serde_json::from_str::<Value>(trimmed) else {
+            continue;
+        };
+
+        let (input, output) = extract_usage_tokens(&value);
+        input_tokens = input_tokens.saturating_add(input);
+        output_tokens = output_tokens.saturating_add(output);
+
+        if let Some(model) = extract_model(&value) {
+            *model_hits.entry(model).or_insert(0) += 1;
+        }
+    }
+
+    let dominant_model = model_hits
+        .into_iter()
+        .max_by(|(left_model, left_hits), (right_model, right_hits)| {
+            left_hits
+                .cmp(right_hits)
+                .then_with(|| right_model.cmp(left_model))
+        })
+        .map(|(model, _)| model);
+
+    SessionStatsScan {
+        input_tokens,
+        output_tokens,
+        dominant_model,
+    }
+}
+
+fn extract_usage_tokens(value: &Value) -> (u64, u64) {
+    let candidates = [
+        Some(value),
+        value.get("usage"),
+        value.get("token_usage"),
+        value.get("payload").and_then(|v| v.get("usage")),
+        value.get("message").and_then(|v| v.get("usage")),
+        value.get("response").and_then(|v| v.get("usage")),
+    ];
+
+    for candidate in candidates.into_iter().flatten() {
+        let (input, output) = extract_usage_tokens_from_value(candidate);
+        if input > 0 || output > 0 {
+            return (input, output);
+        }
+    }
+    (0, 0)
+}
+
+fn extract_usage_tokens_from_value(value: &Value) -> (u64, u64) {
+    let Value::Object(map) = value else {
+        return (0, 0);
+    };
+
+    let mut input = extract_u64_by_keys(
+        map,
+        &[
+            "input_tokens",
+            "inputTokens",
+            "prompt_tokens",
+            "promptTokens",
+            "input_token_count",
+            "inputTokenCount",
+        ],
+    )
+    .unwrap_or(0);
+    let output = extract_u64_by_keys(
+        map,
+        &[
+            "output_tokens",
+            "outputTokens",
+            "completion_tokens",
+            "completionTokens",
+            "output_token_count",
+            "outputTokenCount",
+        ],
+    )
+    .unwrap_or(0);
+
+    if input == 0 && output == 0 {
+        if let Some(total) =
+            extract_u64_by_keys(map, &["total_tokens", "totalTokens", "token_count"])
+        {
+            input = total;
+        }
+    }
+
+    (input, output)
+}
+
+fn extract_u64_by_keys(
+    map: &serde_json::Map<String, Value>,
+    keys: &[&str],
+) -> Option<u64> {
+    keys.iter()
+        .filter_map(|key| map.get(*key))
+        .find_map(extract_positive_u64)
+}
+
+fn extract_positive_u64(value: &Value) -> Option<u64> {
+    match value {
+        Value::Null => None,
+        Value::Bool(v) => Some(u64::from(*v)),
+        Value::Number(v) => {
+            if let Some(n) = v.as_u64() {
+                return Some(n);
+            }
+            if let Some(n) = v.as_i64() {
+                return (n >= 0).then_some(n as u64);
+            }
+            v.as_f64()
+                .and_then(|n| (n.is_finite() && n >= 0.0).then_some(n as u64))
+        }
+        Value::String(v) => v.trim().parse::<u64>().ok(),
+        _ => None,
+    }
+}
+
+fn extract_model(value: &Value) -> Option<String> {
+    let direct_candidates = [
+        value.get("model").and_then(Value::as_str),
+        value.get("model_name").and_then(Value::as_str),
+        value.get("modelName").and_then(Value::as_str),
+        value.get("model_slug").and_then(Value::as_str),
+    ];
+    for model in direct_candidates.into_iter().flatten() {
+        let normalized = model.trim();
+        if !normalized.is_empty() {
+            return Some(normalized.to_string());
+        }
+    }
+
+    let nested_candidates = [
+        value.get("payload"),
+        value.get("message"),
+        value.get("response"),
+        value.get("metadata"),
+    ];
+    for candidate in nested_candidates.into_iter().flatten() {
+        let Some(model) = extract_model(candidate) else {
+            continue;
+        };
+        if !model.trim().is_empty() {
+            return Some(model);
+        }
+    }
+
+    None
+}
+
+fn now_millis() -> i64 {
+    system_time_to_millis(SystemTime::now())
+}
+
+fn day_start_utc(ts: i64) -> i64 {
+    if ts <= 0 {
+        return 0;
+    }
+    ts - (ts % DAY_MS)
+}
+
+fn calc_heat_level(value: usize, max_value: usize) -> u8 {
+    if value == 0 || max_value == 0 {
+        return 0;
+    }
+    let ratio = value as f64 / max_value as f64;
+    if ratio < 0.25 {
+        1
+    } else if ratio < 0.5 {
+        2
+    } else if ratio < 0.75 {
+        3
+    } else {
+        4
+    }
 }
 
 fn parse_message(value: &Value) -> Option<HistoryMessage> {
