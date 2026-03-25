@@ -1,5 +1,36 @@
 # Changelog
 
+## [V0.0.4] - 2026-03-25
+
+### Phase P3 分析看板图表升级（S1~S4）
+
+#### S1：趋势 + Token 构成（C1/C2/C3）
+- 新增 `src/components/stats/StatsTrendChart.tsx`：会话/消息趋势组合图，支持 hover、键盘聚焦与日期下钻。
+- 新增 `src/components/stats/StatsTokenDonut.tsx`：输入/输出 Token 环形构成图。
+- `src/components/stats/StatsPanel.tsx`：接入 C1/C2/C3 到主分析区。
+
+#### S2：项目与模型构成（C4/C5）
+- 新增 `src/components/stats/StatsProjectBar.tsx`：项目活跃 TopN 横向柱图，支持点击柱条按项目过滤。
+- 新增 `src/components/stats/StatsModelComposition.tsx`：模型构成图（前 5 模型 + 其他合并）。
+- `src/components/stats/StatsPanel.tsx`：接入 C4/C5 图表组件。
+
+#### S3：热力图统一交互（C6）
+- `src/components/stats/TimelineHeatmap.tsx`：统一图表交互样式（hover/selected 高亮、键盘方向键导航、Enter/Space 下钻、增强 a11y 标签）。
+
+#### S4：后端扩展并落地 V2（C7~C10）
+- `src-tauri/src/commands/history.rs`：扩展 `history_get_stats` 返回字段：
+  - `daily_series`
+  - `source_distribution`
+  - `project_efficiency`
+  - `hourly_activity`
+- `src/lib/types.ts` + `src/stores/historyStore.ts`：补充新字段类型定义与归一化。
+- 新增图表组件：
+  - `src/components/stats/StatsTokenTrendChart.tsx`（C7 Token 日趋势）
+  - `src/components/stats/StatsSourceComparisonChart.tsx`（C8 来源对比）
+  - `src/components/stats/StatsProjectEfficiencyScatter.tsx`（C9 项目效率散点）
+  - `src/components/stats/StatsHourlyActivityChart.tsx`（C10 活跃时段分布）
+- `src/components/stats/StatsPanel.tsx`：接入 C7~C10。
+
 ## [V0.0.4] - 2026-03-24
 
 ### Phase P2 分析看板

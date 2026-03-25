@@ -1,16 +1,21 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { getDb } from "../lib/db";
+import { createPerfMarker } from "../lib/logger";
 import type {
   HistoryPromptItem,
   HistorySearchHit,
   HistorySessionDetail,
   HistorySessionSummary,
   HistorySessionView,
+  HistoryStatsDailySeriesItem,
   HistoryStatsHeatmapDay,
+  HistoryStatsHourlyActivityItem,
   HistoryStatsModelItem,
   HistoryStatsPayload,
+  HistoryStatsProjectEfficiencyItem,
   HistoryStatsProjectItem,
+  HistoryStatsSourceItem,
   PromptScope,
   HistorySource,
   HistorySourceFilter,
@@ -32,6 +37,8 @@ interface HistoryStore {
   searching: boolean;
   loadingPrompts: boolean;
   loadingStats: boolean;
+  statsError: string | null;
+  statsUpdatedAt: number | null;
   sourceFilter: HistorySourceFilter;
   sessions: HistorySessionView[];
   activeSessionKey: string | null;
@@ -63,7 +70,11 @@ interface HistoryStore {
     sessionKey?: string | null;
     limit?: number;
   }) => Promise<void>;
-  loadStats: (options?: { projectKey?: string | null; rangeDays?: number }) => Promise<void>;
+  loadStats: (options?: {
+    projectKey?: string | null;
+    rangeDays?: number;
+    force?: boolean;
+  }) => Promise<void>;
   openSessionAtMessage: (sessionKey: string, messageIndex: number) => Promise<void>;
   clearFocusedMessage: () => void;
   updateMeta: (sessionKey: string, patch: MetaPatchInput) => Promise<void>;
@@ -73,6 +84,15 @@ interface HistoryStore {
 
 const DEFAULT_SESSION_LIMIT = 500;
 const DEFAULT_SEARCH_LIMIT = 120;
+const STATS_CACHE_TTL_MS = 15_000;
+
+interface StatsCacheEntry {
+  payload: HistoryStatsPayload;
+  cachedAt: number;
+  sessionsFingerprint: string;
+}
+
+const statsCache = new Map<string, StatsCacheEntry>();
 
 function asString(value: unknown): string {
   if (typeof value === "string") return value;
@@ -198,6 +218,49 @@ function normalizeHeatmapDay(raw: unknown): HistoryStatsHeatmapDay {
   };
 }
 
+function normalizeDailySeries(raw: unknown): HistoryStatsDailySeriesItem {
+  const rec = (raw ?? {}) as Record<string, unknown>;
+  return {
+    day_start_utc: asNumber(rec.day_start_utc ?? rec.dayStartUtc),
+    sessions: asNumber(rec.sessions),
+    messages: asNumber(rec.messages),
+    input_tokens: asNumber(rec.input_tokens ?? rec.inputTokens),
+    output_tokens: asNumber(rec.output_tokens ?? rec.outputTokens),
+  };
+}
+
+function normalizeSourceDistribution(raw: unknown): HistoryStatsSourceItem {
+  const rec = (raw ?? {}) as Record<string, unknown>;
+  return {
+    source: asString(rec.source),
+    sessions: asNumber(rec.sessions),
+    messages: asNumber(rec.messages),
+    input_tokens: asNumber(rec.input_tokens ?? rec.inputTokens),
+    output_tokens: asNumber(rec.output_tokens ?? rec.outputTokens),
+  };
+}
+
+function normalizeProjectEfficiency(raw: unknown): HistoryStatsProjectEfficiencyItem {
+  const rec = (raw ?? {}) as Record<string, unknown>;
+  return {
+    project_key: asString(rec.project_key ?? rec.projectKey),
+    sessions: asNumber(rec.sessions),
+    messages: asNumber(rec.messages),
+    input_tokens: asNumber(rec.input_tokens ?? rec.inputTokens),
+    output_tokens: asNumber(rec.output_tokens ?? rec.outputTokens),
+    avg_messages_per_session: asNumber(rec.avg_messages_per_session ?? rec.avgMessagesPerSession),
+  };
+}
+
+function normalizeHourlyActivity(raw: unknown): HistoryStatsHourlyActivityItem {
+  const rec = (raw ?? {}) as Record<string, unknown>;
+  return {
+    hour: asNumber(rec.hour),
+    sessions: asNumber(rec.sessions),
+    messages: asNumber(rec.messages),
+  };
+}
+
 function normalizeStats(raw: unknown): HistoryStatsPayload {
   const rec = (raw ?? {}) as Record<string, unknown>;
   const projectRawValue = rec.project_ranking ?? rec.projectRanking;
@@ -209,6 +272,22 @@ function normalizeStats(raw: unknown): HistoryStatsPayload {
     ? (modelRawValue as unknown[])
     : [];
   const heatmapRaw = Array.isArray(rec.heatmap) ? (rec.heatmap as unknown[]) : [];
+  const dailySeriesRawValue = rec.daily_series ?? rec.dailySeries;
+  const dailySeriesRaw = Array.isArray(dailySeriesRawValue)
+    ? (dailySeriesRawValue as unknown[])
+    : [];
+  const sourceRawValue = rec.source_distribution ?? rec.sourceDistribution;
+  const sourceRaw = Array.isArray(sourceRawValue)
+    ? (sourceRawValue as unknown[])
+    : [];
+  const efficiencyRawValue = rec.project_efficiency ?? rec.projectEfficiency;
+  const efficiencyRaw = Array.isArray(efficiencyRawValue)
+    ? (efficiencyRawValue as unknown[])
+    : [];
+  const hourlyRawValue = rec.hourly_activity ?? rec.hourlyActivity;
+  const hourlyRaw = Array.isArray(hourlyRawValue)
+    ? (hourlyRawValue as unknown[])
+    : [];
   return {
     range_days: asNumber(rec.range_days ?? rec.rangeDays),
     total_sessions: asNumber(rec.total_sessions ?? rec.totalSessions),
@@ -218,6 +297,10 @@ function normalizeStats(raw: unknown): HistoryStatsPayload {
     project_ranking: projectRaw.map((item) => normalizeStatsProject(item)),
     model_distribution: modelRaw.map((item) => normalizeStatsModel(item)),
     heatmap: heatmapRaw.map((item) => normalizeHeatmapDay(item)),
+    daily_series: dailySeriesRaw.map((item) => normalizeDailySeries(item)),
+    source_distribution: sourceRaw.map((item) => normalizeSourceDistribution(item)),
+    project_efficiency: efficiencyRaw.map((item) => normalizeProjectEfficiency(item)),
+    hourly_activity: hourlyRaw.map((item) => normalizeHourlyActivity(item)),
   };
 }
 
@@ -228,6 +311,25 @@ function normalizeSourceFilter(filter: HistorySourceFilter): HistorySource | nul
 
 function makeSessionKey(source: HistorySource, sessionId: string, filePath: string): string {
   return `${source}:${sessionId}:${filePath}`;
+}
+
+function makeStatsCacheKey(
+  source: HistorySourceFilter,
+  projectKey: string | null,
+  rangeDays: number
+): string {
+  return `${source}|${projectKey ?? "__all__"}|${rangeDays}`;
+}
+
+function sessionsFingerprint(sessions: HistorySessionView[]): string {
+  if (sessions.length === 0) return "0:0";
+  let maxUpdatedAt = 0;
+  for (const session of sessions) {
+    if (session.updated_at > maxUpdatedAt) {
+      maxUpdatedAt = session.updated_at;
+    }
+  }
+  return `${sessions.length}:${maxUpdatedAt}`;
 }
 
 function parseTags(tagsJson: string): string[] {
@@ -292,6 +394,8 @@ export const useHistoryStore = create<HistoryStore>((set, get) => ({
   searching: false,
   loadingPrompts: false,
   loadingStats: false,
+  statsError: null,
+  statsUpdatedAt: null,
   sourceFilter: "all",
   sessions: [],
   activeSessionKey: null,
@@ -331,9 +435,18 @@ export const useHistoryStore = create<HistoryStore>((set, get) => ({
   },
 
   openHistory: async () => {
+    const hasSessions = get().sessions.length > 0;
+    const stopPerf = createPerfMarker("history.open", {
+      sourceFilter: get().sourceFilter,
+      fromCache: hasSessions,
+    });
     set({ isOpen: true });
-    if (get().sessions.length === 0) {
-      await get().loadSessions();
+    try {
+      if (!hasSessions) {
+        await get().loadSessions();
+      }
+    } finally {
+      stopPerf({ sessionCount: get().sessions.length });
     }
   },
 
@@ -361,6 +474,9 @@ export const useHistoryStore = create<HistoryStore>((set, get) => ({
   },
 
   loadSessions: async () => {
+    const stopPerf = createPerfMarker("history.sessions.load", {
+      sourceFilter: get().sourceFilter,
+    });
     set({ loadingSessions: true });
     try {
       await get().ensureMetaTable();
@@ -390,12 +506,20 @@ export const useHistoryStore = create<HistoryStore>((set, get) => ({
       }
     } finally {
       set({ loadingSessions: false });
+      stopPerf({
+        sessionCount: get().sessions.length,
+        activeSessionKey: get().activeSessionKey,
+      });
     }
   },
 
   openSession: async (sessionKey) => {
+    const stopPerf = createPerfMarker("history.session.detail", { sessionKey });
     const target = get().sessions.find((item) => item.sessionKey === sessionKey);
-    if (!target) return;
+    if (!target) {
+      stopPerf({ skipped: true, reason: "missing-target" });
+      return;
+    }
     set({ activeSessionKey: sessionKey, loadingSessionDetail: true, focusedMessageIndex: null });
     try {
       const detailRaw = await invoke<unknown>("history_get_session", {
@@ -407,6 +531,9 @@ export const useHistoryStore = create<HistoryStore>((set, get) => ({
       set({ activeSession: detail });
     } finally {
       set({ loadingSessionDetail: false });
+      stopPerf({
+        messageCount: get().activeSession?.messages.length ?? 0,
+      });
     }
   },
 
@@ -464,15 +591,69 @@ export const useHistoryStore = create<HistoryStore>((set, get) => ({
   },
 
   loadStats: async (options) => {
-    set({ loadingStats: true });
+    const projectKey = options?.projectKey?.trim() || null;
+    const rangeDays = options?.rangeDays ?? 30;
+    const force = options?.force ?? false;
+    const sourceFilter = get().sourceFilter;
+    const cacheKey = makeStatsCacheKey(sourceFilter, projectKey, rangeDays);
+    const now = Date.now();
+    const fingerprint = sessionsFingerprint(get().sessions);
+    const cached = statsCache.get(cacheKey);
+    const stopPerf = createPerfMarker("stats.load", {
+      sourceFilter,
+      projectKey: projectKey ?? "__all__",
+      rangeDays,
+    });
+
+    if (
+      !force &&
+      cached &&
+      cached.sessionsFingerprint === fingerprint &&
+      now - cached.cachedAt <= STATS_CACHE_TTL_MS
+    ) {
+      set({
+        stats: cached.payload,
+        statsError: null,
+        statsUpdatedAt: cached.cachedAt,
+      });
+      stopPerf({
+        cacheHit: true,
+        heatmapDays: cached.payload.heatmap.length,
+      });
+      return;
+    }
+
+    set({ loadingStats: true, statsError: null });
     try {
-      const source = normalizeSourceFilter(get().sourceFilter);
+      const source = normalizeSourceFilter(sourceFilter);
       const statsRaw = await invoke<unknown>("history_get_stats", {
         source,
-        projectKey: options?.projectKey?.trim() || null,
-        rangeDays: options?.rangeDays ?? 30,
+        projectKey,
+        rangeDays,
       });
-      set({ stats: normalizeStats(statsRaw) });
+      const payload = normalizeStats(statsRaw);
+      const cachedAt = Date.now();
+      statsCache.set(cacheKey, {
+        payload,
+        cachedAt,
+        sessionsFingerprint: fingerprint,
+      });
+      set({
+        stats: payload,
+        statsError: null,
+        statsUpdatedAt: cachedAt,
+      });
+      stopPerf({
+        cacheHit: false,
+        heatmapDays: payload.heatmap.length,
+      });
+    } catch (err) {
+      set({ statsError: String(err) });
+      stopPerf({
+        cacheHit: false,
+        error: String(err),
+      });
+      throw err;
     } finally {
       set({ loadingStats: false });
     }

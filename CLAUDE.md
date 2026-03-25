@@ -6,7 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 CLI-Manager 是一款 Windows 桌面应用，用于集中管理多个开发项目的 CLI 终端（支持 PowerShell / CMD / PWsh / WSL / Bash）。
 
-## 最近变更（2026-03-24）
+## 最近变更（2026-03-25）
+
+- 分析看板 S1（C1/C2/C3）：新增会话/消息趋势图与 Token 构成图，支持 hover 详情与日期下钻联动。
+- 分析看板 S2（C4/C5）：项目活跃排行升级为可交互横向柱图（点击即按项目过滤），模型占比升级为构成图（前 5 + 其他）。
+- 分析看板 S3（C6）：热力图统一图表交互（hover/selected 反馈、键盘方向键移动焦点、Enter/Space 下钻、a11y 标签）。
+- 分析看板 S4（V2，C7~C10）：`history_get_stats` 扩展 `daily_series/source_distribution/project_efficiency/hourly_activity`，前端新增 Token 趋势、来源对比、效率散点、时段分布图。
 
 - 历史会话列表增强：新增时间分组（Today/Yesterday/This Week/This Month/Earlier）、来源筛选与历史侧栏宽度记忆。
 - 历史会话交互优化：修复左右拖拽卡顿，拖动过程使用帧节流更新，松手后再持久化设置；并修复拖拽宽度计算错误导致的“无法拖动”问题。

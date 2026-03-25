@@ -6,6 +6,7 @@ use std::env;
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone)]
@@ -23,14 +24,32 @@ struct SessionSummaryScan {
     branch: Option<String>,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct SessionStatsScan {
     input_tokens: u64,
     output_tokens: u64,
     dominant_model: Option<String>,
 }
 
-const DAY_MS: i64 = 24 * 60 * 60 * 1000;
+#[derive(Clone)]
+struct CachedSessionComputation {
+    created_at: i64,
+    updated_at: i64,
+    session_id: String,
+    title: String,
+    message_count: usize,
+    branch: Option<String>,
+    stats: SessionStatsScan,
+}
+
+#[derive(Default)]
+struct SessionStatsCache {
+    entries: HashMap<String, CachedSessionComputation>,
+}
+
+const HOUR_MS: i64 = 60 * 60 * 1000;
+const DAY_MS: i64 = 24 * HOUR_MS;
+static SESSION_STATS_CACHE: OnceLock<Mutex<SessionStatsCache>> = OnceLock::new();
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -126,6 +145,45 @@ pub struct HistoryStatsHeatmapDay {
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct HistoryStatsDailySeriesItem {
+    pub day_start_utc: i64,
+    pub sessions: usize,
+    pub messages: usize,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryStatsSourceItem {
+    pub source: String,
+    pub sessions: usize,
+    pub messages: usize,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryStatsProjectEfficiencyItem {
+    pub project_key: String,
+    pub sessions: usize,
+    pub messages: usize,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub avg_messages_per_session: f64,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryStatsHourlyActivityItem {
+    pub hour: u8,
+    pub sessions: usize,
+    pub messages: usize,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct HistoryStatsResponse {
     pub range_days: usize,
     pub total_sessions: usize,
@@ -135,6 +193,25 @@ pub struct HistoryStatsResponse {
     pub project_ranking: Vec<HistoryStatsProjectItem>,
     pub model_distribution: Vec<HistoryStatsModelItem>,
     pub heatmap: Vec<HistoryStatsHeatmapDay>,
+    pub daily_series: Vec<HistoryStatsDailySeriesItem>,
+    pub source_distribution: Vec<HistoryStatsSourceItem>,
+    pub project_efficiency: Vec<HistoryStatsProjectEfficiencyItem>,
+    pub hourly_activity: Vec<HistoryStatsHourlyActivityItem>,
+}
+
+#[derive(Default)]
+struct DayStatsAggregate {
+    sessions: usize,
+    messages: usize,
+    input_tokens: u64,
+    output_tokens: u64,
+    session_refs: Vec<HistorySessionSummary>,
+}
+
+#[derive(Clone, Default)]
+struct HourStatsAggregate {
+    sessions: usize,
+    messages: usize,
 }
 
 #[tauri::command]
@@ -375,7 +452,9 @@ pub async fn history_get_stats(
     let mut total_output_tokens = 0u64;
     let mut project_map: HashMap<String, HistoryStatsProjectItem> = HashMap::new();
     let mut model_map: HashMap<String, usize> = HashMap::new();
-    let mut day_map: BTreeMap<i64, HistoryStatsHeatmapDay> = BTreeMap::new();
+    let mut source_map: HashMap<String, HistoryStatsSourceItem> = HashMap::new();
+    let mut day_map: BTreeMap<i64, DayStatsAggregate> = BTreeMap::new();
+    let mut hourly_map: Vec<HourStatsAggregate> = vec![HourStatsAggregate::default(); 24];
 
     for file_ref in files {
         if let Some(project) = &target_project {
@@ -384,17 +463,20 @@ pub async fn history_get_stats(
             }
         }
 
-        let summary = build_session_summary(&file_ref);
+        let computed = get_or_scan_session_computation(&file_ref);
+        let summary = summary_from_computation(&file_ref, &computed);
         let day_start = day_start_utc(summary.updated_at);
         if day_start < start_day || day_start > end_day {
             continue;
         }
 
-        let scan = scan_session_stats(&file_ref.path);
         total_sessions += 1;
         total_messages += summary.message_count;
-        total_input_tokens = total_input_tokens.saturating_add(scan.input_tokens);
-        total_output_tokens = total_output_tokens.saturating_add(scan.output_tokens);
+        total_input_tokens = total_input_tokens.saturating_add(computed.stats.input_tokens);
+        total_output_tokens = total_output_tokens.saturating_add(computed.stats.output_tokens);
+        let hour = hour_of_day_utc(summary.updated_at);
+        hourly_map[hour].sessions += 1;
+        hourly_map[hour].messages += summary.message_count;
 
         let project_entry =
             project_map
@@ -408,23 +490,50 @@ pub async fn history_get_stats(
                 });
         project_entry.sessions += 1;
         project_entry.messages += summary.message_count;
-        project_entry.input_tokens = project_entry.input_tokens.saturating_add(scan.input_tokens);
-        project_entry.output_tokens = project_entry.output_tokens.saturating_add(scan.output_tokens);
+        project_entry.input_tokens = project_entry
+            .input_tokens
+            .saturating_add(computed.stats.input_tokens);
+        project_entry.output_tokens = project_entry
+            .output_tokens
+            .saturating_add(computed.stats.output_tokens);
 
-        let model_name = scan
+        let source_entry = source_map.entry(summary.source.clone()).or_insert(HistoryStatsSourceItem {
+            source: summary.source.clone(),
+            sessions: 0,
+            messages: 0,
+            input_tokens: 0,
+            output_tokens: 0,
+        });
+        source_entry.sessions += 1;
+        source_entry.messages += summary.message_count;
+        source_entry.input_tokens = source_entry
+            .input_tokens
+            .saturating_add(computed.stats.input_tokens);
+        source_entry.output_tokens = source_entry
+            .output_tokens
+            .saturating_add(computed.stats.output_tokens);
+
+        let model_name = computed
+            .stats
             .dominant_model
             .unwrap_or_else(|| "unknown".to_string());
         *model_map.entry(model_name).or_insert(0) += 1;
 
-        let day_entry = day_map.entry(day_start).or_insert(HistoryStatsHeatmapDay {
-            day_start_utc: day_start,
+        let day_entry = day_map.entry(day_start).or_insert(DayStatsAggregate {
             sessions: 0,
             messages: 0,
-            level: 0,
+            input_tokens: 0,
+            output_tokens: 0,
             session_refs: Vec::new(),
         });
         day_entry.sessions += 1;
         day_entry.messages += summary.message_count;
+        day_entry.input_tokens = day_entry
+            .input_tokens
+            .saturating_add(computed.stats.input_tokens);
+        day_entry.output_tokens = day_entry
+            .output_tokens
+            .saturating_add(computed.stats.output_tokens);
         day_entry.session_refs.push(summary);
     }
 
@@ -450,15 +559,72 @@ pub async fn history_get_stats(
         .collect();
     model_distribution.sort_by(|a, b| b.sessions.cmp(&a.sessions).then(a.model.cmp(&b.model)));
 
+    let mut source_distribution: Vec<HistoryStatsSourceItem> = source_map.into_values().collect();
+    source_distribution.sort_by(|a, b| {
+        b.sessions
+            .cmp(&a.sessions)
+            .then(b.messages.cmp(&a.messages))
+            .then(a.source.cmp(&b.source))
+    });
+
+    let mut project_efficiency: Vec<HistoryStatsProjectEfficiencyItem> = project_ranking
+        .iter()
+        .map(|item| HistoryStatsProjectEfficiencyItem {
+            project_key: item.project_key.clone(),
+            sessions: item.sessions,
+            messages: item.messages,
+            input_tokens: item.input_tokens,
+            output_tokens: item.output_tokens,
+            avg_messages_per_session: if item.sessions == 0 {
+                0.0
+            } else {
+                item.messages as f64 / item.sessions as f64
+            },
+        })
+        .collect();
+    project_efficiency.sort_by(|a, b| {
+        b.sessions
+            .cmp(&a.sessions)
+            .then_with(|| b.avg_messages_per_session.total_cmp(&a.avg_messages_per_session))
+            .then(a.project_key.cmp(&b.project_key))
+    });
+
+    let hourly_activity: Vec<HistoryStatsHourlyActivityItem> = hourly_map
+        .iter()
+        .enumerate()
+        .map(|(hour, agg)| HistoryStatsHourlyActivityItem {
+            hour: hour as u8,
+            sessions: agg.sessions,
+            messages: agg.messages,
+        })
+        .collect();
+
     let max_day_sessions = day_map.values().map(|item| item.sessions).max().unwrap_or(0);
     let mut heatmap = Vec::with_capacity(range_days);
+    let mut daily_series = Vec::with_capacity(range_days);
     for day_idx in 0..range_days {
         let day_start = start_day + day_idx as i64 * DAY_MS;
         if let Some(mut day) = day_map.remove(&day_start) {
-            day.session_refs
-                .sort_by(|a, b| b.updated_at.cmp(&a.updated_at).then(a.session_id.cmp(&b.session_id)));
-            day.level = calc_heat_level(day.sessions, max_day_sessions);
-            heatmap.push(day);
+            day.session_refs.sort_by(|a, b| {
+                b.updated_at
+                    .cmp(&a.updated_at)
+                    .then(a.session_id.cmp(&b.session_id))
+            });
+            let level = calc_heat_level(day.sessions, max_day_sessions);
+            heatmap.push(HistoryStatsHeatmapDay {
+                day_start_utc: day_start,
+                sessions: day.sessions,
+                messages: day.messages,
+                level,
+                session_refs: day.session_refs,
+            });
+            daily_series.push(HistoryStatsDailySeriesItem {
+                day_start_utc: day_start,
+                sessions: day.sessions,
+                messages: day.messages,
+                input_tokens: day.input_tokens,
+                output_tokens: day.output_tokens,
+            });
         } else {
             heatmap.push(HistoryStatsHeatmapDay {
                 day_start_utc: day_start,
@@ -466,6 +632,13 @@ pub async fn history_get_stats(
                 messages: 0,
                 level: 0,
                 session_refs: Vec::new(),
+            });
+            daily_series.push(HistoryStatsDailySeriesItem {
+                day_start_utc: day_start,
+                sessions: 0,
+                messages: 0,
+                input_tokens: 0,
+                output_tokens: 0,
             });
         }
     }
@@ -479,35 +652,85 @@ pub async fn history_get_stats(
         project_ranking,
         model_distribution,
         heatmap,
+        daily_series,
+        source_distribution,
+        project_efficiency,
+        hourly_activity,
     })
 }
 
-fn build_session_summary(file_ref: &SessionFileRef) -> HistorySessionSummary {
-    let (created_at, updated_at) = file_timestamps(&file_ref.path);
-    let scan = scan_session_summary(&file_ref.path);
-    let session_id = file_ref
-        .path
+fn get_stats_cache() -> &'static Mutex<SessionStatsCache> {
+    SESSION_STATS_CACHE.get_or_init(|| Mutex::new(SessionStatsCache::default()))
+}
+
+fn summary_from_computation(
+    file_ref: &SessionFileRef,
+    computed: &CachedSessionComputation,
+) -> HistorySessionSummary {
+    HistorySessionSummary {
+        session_id: computed.session_id.clone(),
+        source: file_ref.source.clone(),
+        project_key: file_ref.project_key.clone(),
+        title: computed.title.clone(),
+        file_path: file_ref.path.to_string_lossy().to_string(),
+        created_at: computed.created_at,
+        updated_at: computed.updated_at,
+        message_count: computed.message_count,
+        branch: computed.branch.clone(),
+    }
+}
+
+fn scan_session_computation(
+    path: &Path,
+    created_at: i64,
+    updated_at: i64,
+) -> CachedSessionComputation {
+    let summary_scan = scan_session_summary(path);
+    let stats = scan_session_stats(path);
+    let session_id = path
         .file_stem()
         .map(|v| v.to_string_lossy().to_string())
         .unwrap_or_else(|| "unknown-session".to_string());
-    let title = scan
+    let title = summary_scan
         .first_user_message
-        .or(scan.first_message)
+        .or(summary_scan.first_message)
         .map(|text| excerpt(&text, 80))
         .filter(|text| !text.is_empty())
         .unwrap_or_else(|| session_id.clone());
 
-    HistorySessionSummary {
-        session_id,
-        source: file_ref.source.clone(),
-        project_key: file_ref.project_key.clone(),
-        title,
-        file_path: file_ref.path.to_string_lossy().to_string(),
+    CachedSessionComputation {
         created_at,
         updated_at,
-        message_count: scan.message_count,
-        branch: scan.branch,
+        session_id,
+        title,
+        message_count: summary_scan.message_count,
+        branch: summary_scan.branch,
+        stats,
     }
+}
+
+fn get_or_scan_session_computation(file_ref: &SessionFileRef) -> CachedSessionComputation {
+    let (created_at, updated_at) = file_timestamps(&file_ref.path);
+    let key = path_to_key(&file_ref.path);
+
+    if let Ok(cache) = get_stats_cache().lock() {
+        if let Some(existing) = cache.entries.get(&key) {
+            if existing.updated_at == updated_at {
+                return existing.clone();
+            }
+        }
+    }
+
+    let computed = scan_session_computation(&file_ref.path, created_at, updated_at);
+    if let Ok(mut cache) = get_stats_cache().lock() {
+        cache.entries.insert(key, computed.clone());
+    }
+    computed
+}
+
+fn build_session_summary(file_ref: &SessionFileRef) -> HistorySessionSummary {
+    let computed = get_or_scan_session_computation(file_ref);
+    summary_from_computation(file_ref, &computed)
 }
 
 fn build_session_detail(file_ref: &SessionFileRef) -> Result<HistorySessionDetail, String> {
@@ -941,6 +1164,14 @@ fn day_start_utc(ts: i64) -> i64 {
         return 0;
     }
     ts - (ts % DAY_MS)
+}
+
+fn hour_of_day_utc(ts: i64) -> usize {
+    if ts <= 0 {
+        return 0;
+    }
+    let normalized = ((ts % DAY_MS) + DAY_MS) % DAY_MS;
+    (normalized / HOUR_MS) as usize
 }
 
 fn calc_heat_level(value: usize, max_value: usize) -> u8 {

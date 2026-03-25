@@ -15,6 +15,7 @@
 - **历史会话时间分组**：按 Today / Yesterday / This Week / This Month / Earlier 分组展示。
 - **Diff 视图**：支持查看会话中的代码改动（Unified Diff + Codex Begin Patch），并可跳回触发消息。
 - **分析看板（P2）**：提供历史会话统计（会话数、消息数、输入/输出 Token）、项目排行、模型占比与活跃热力图。
+- **分析看板（V2 图表）**：新增 Token 日趋势、来源对比、项目效率散点、24 小时活跃时段分布，支持趋势/构成/对比分析。
 - **热力图会话联动**：点击某一天可展开当天会话清单并直接跳转。
 - **看板入口位置**：侧边栏底部“设置”按钮左侧，避免与历史详情区耦合。
 - **外部终端模式**：开关控制，使用 Windows Terminal（`wt`）在一个窗口内打开多个 Tab，支持按项目 Shell 配置启动。
@@ -56,7 +57,12 @@ cd src-tauri && cargo check
 cd src-tauri && cargo test
 ```
 
-## 最近更新（2026-03-24）
+## 最近更新（2026-03-25）
+
+- 分析看板 S1：完成 C1/C2/C3（会话/消息趋势 + Token 构成）。
+- 分析看板 S2：完成 C4/C5（项目 TopN 柱图可点击过滤 + 模型构成图）。
+- 分析看板 S3：完成 C6 热力图统一交互样式（hover、选中态、键盘导航、a11y）。
+- 分析看板 S4：后端扩展 `history_get_stats`（`daily_series`、`source_distribution`、`project_efficiency`、`hourly_activity`），并落地 C7~C10 四类 V2 图表。
 
 - 历史会话：新增时间分组与侧栏宽度记忆；移除不稳定的分支筛选。
 - Diff 视图：兼容 Unified Diff 与 Codex `*** Begin Patch`，并增加行级高亮和跳回消息定位。

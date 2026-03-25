@@ -183,6 +183,37 @@ export interface HistoryStatsHeatmapDay {
   session_refs: HistorySessionSummary[];
 }
 
+export interface HistoryStatsDailySeriesItem {
+  day_start_utc: number;
+  sessions: number;
+  messages: number;
+  input_tokens: number;
+  output_tokens: number;
+}
+
+export interface HistoryStatsSourceItem {
+  source: string;
+  sessions: number;
+  messages: number;
+  input_tokens: number;
+  output_tokens: number;
+}
+
+export interface HistoryStatsProjectEfficiencyItem {
+  project_key: string;
+  sessions: number;
+  messages: number;
+  input_tokens: number;
+  output_tokens: number;
+  avg_messages_per_session: number;
+}
+
+export interface HistoryStatsHourlyActivityItem {
+  hour: number;
+  sessions: number;
+  messages: number;
+}
+
 export interface HistoryStatsPayload {
   range_days: number;
   total_sessions: number;
@@ -192,6 +223,10 @@ export interface HistoryStatsPayload {
   project_ranking: HistoryStatsProjectItem[];
   model_distribution: HistoryStatsModelItem[];
   heatmap: HistoryStatsHeatmapDay[];
+  daily_series: HistoryStatsDailySeriesItem[];
+  source_distribution: HistoryStatsSourceItem[];
+  project_efficiency: HistoryStatsProjectEfficiencyItem[];
+  hourly_activity: HistoryStatsHourlyActivityItem[];
 }
 
 export const SHELL_OPTIONS = [
