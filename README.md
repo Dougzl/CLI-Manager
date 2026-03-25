@@ -56,19 +56,3 @@ npx tsc --noEmit
 cd src-tauri && cargo check
 cd src-tauri && cargo test
 ```
-
-## 最近更新（2026-03-25）
-
-- 分析看板 S1：完成 C1/C2/C3（会话/消息趋势 + Token 构成）。
-- 分析看板 S2：完成 C4/C5（项目 TopN 柱图可点击过滤 + 模型构成图）。
-- 分析看板 S3：完成 C6 热力图统一交互样式（hover、选中态、键盘导航、a11y）。
-- 分析看板 S4：后端扩展 `history_get_stats`（`daily_series`、`source_distribution`、`project_efficiency`、`hourly_activity`），并落地 C7~C10 四类 V2 图表。
-
-- 历史会话：新增时间分组与侧栏宽度记忆；移除不稳定的分支筛选。
-- Diff 视图：兼容 Unified Diff 与 Codex `*** Begin Patch`，并增加行级高亮和跳回消息定位。
-- Diff 交互：修复代码块横向滚动体验，避免整页横向空白拖动。
-- 历史会话拖拽：修复左右布局拖拽卡顿与“无法拖动”问题。
-- 命令模板：支持全局/项目/会话三级作用域（会话级模板单次会话有效）。
-- 分析看板：新增统计面板（会话/消息/Token 汇总、项目排行、模型占比）与 7/30/90 天活跃热力图。
-- 看板入口：从历史会话区域迁移到侧边栏底部“设置”左侧，并使用全局弹层承载。
-- 说明：本节按要求不将 `P1-1 Prompt Library（三级作用域）` 计入本次验收摘要。
