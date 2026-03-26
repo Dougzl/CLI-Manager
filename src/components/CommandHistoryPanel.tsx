@@ -109,7 +109,7 @@ export function CommandHistoryPanel() {
       <button
         ref={triggerRef}
         onClick={() => setOpen((prev) => !prev)}
-        className="flex h-6 items-center gap-1.5 rounded-md border border-border bg-bg-tertiary px-2.5 text-xs text-text-muted opacity-90 transition-opacity hover:opacity-100"
+        className="ui-flat-action text-xs"
         title="Command History"
         aria-label={open ? "关闭命令历史面板" : "打开命令历史面板"}
         aria-controls="command-history-panel"
@@ -124,11 +124,11 @@ export function CommandHistoryPanel() {
           <div
             ref={panelRef}
             id="command-history-panel"
-            className="fixed z-40 mt-1 w-80 overflow-hidden rounded-lg border border-border bg-bg-secondary shadow-lg animate-slide-down"
+            className="ui-glass ui-bloom-shadow fixed z-40 mt-1 w-80 overflow-hidden rounded-xl animate-slide-down"
             style={{ left: panelPosition.left, top: panelPosition.top }}
           >
-            <div className="border-b border-border p-2">
-              <div className="flex items-center gap-2 rounded border border-border bg-bg-tertiary px-2 py-1">
+            <div className="p-2">
+              <div className="flex items-center gap-2 rounded-lg bg-surface-container-highest px-2 py-1">
                 <Search size={12} strokeWidth={1.5} />
                 <input
                   type="text"
@@ -146,7 +146,7 @@ export function CommandHistoryPanel() {
               {panelLoading ? (
                 <div className="space-y-2 px-3 py-3">
                   {[1, 2, 3, 4].map((item) => (
-                    <div key={item} className="space-y-1 border-b border-border pb-2 last:border-b-0">
+                    <div key={item} className="space-y-1 pb-2">
                       <Skeleton className="h-3 w-full" />
                       <Skeleton className="h-2.5 w-1/3" />
                     </div>
@@ -166,7 +166,7 @@ export function CommandHistoryPanel() {
                     onClick={() => {
                       void handleReplay(entry.command);
                     }}
-                    className="flex w-full items-start gap-2 border-b border-border px-3 py-1.5 text-left text-xs text-text-secondary transition-opacity hover:opacity-80"
+                    className="ui-interactive flex w-full items-start gap-2 px-3 py-1.5 text-left text-xs text-on-surface-variant"
                     title="点击重放此命令"
                   >
                     <code className="flex-1 truncate font-mono text-text-primary">{entry.command}</code>

@@ -98,14 +98,14 @@ function App() {
   }, [resolvedTheme, historySessions.length]);
 
   return (
-    <div className="flex h-screen flex-col bg-bg-primary">
+    <div className="ui-workspace-shell flex h-screen flex-col">
       <a href="#main-content" className="skip-link">
         跳转到主内容
       </a>
       <WindowTitleBar />
-      <div className="flex min-h-0 flex-1 -mt-px">
+      <div className="flex min-h-0 flex-1">
         <Sidebar onOpenStats={handleOpenStats} />
-        <main id="main-content" className="flex min-w-0 flex-1 flex-col bg-bg-primary" tabIndex={-1}>
+        <main id="main-content" className="ui-main-shell flex min-w-0 flex-1 flex-col" tabIndex={-1}>
           <TerminalTabs />
         </main>
       </div>

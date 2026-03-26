@@ -38,8 +38,7 @@ function InlineRename({ initial, onConfirm, onCancel }: { initial: string; onCon
         if (e.key === "Enter") submit();
         if (e.key === "Escape") onCancel();
       }}
-      className="flex-1 px-1 py-0.5 text-xs rounded border outline-none"
-      style={{ backgroundColor: "var(--bg-tertiary)", borderColor: "var(--accent)", color: "var(--text-primary)" }}
+      className="ui-focus-ring flex-1 rounded-md bg-surface-container-highest px-1.5 py-1 text-xs text-on-surface outline-none"
       onClick={(e) => e.stopPropagation()}
     />
   );
@@ -81,10 +80,10 @@ export function TreeNodeItem({ node, depth }: { node: TNode; depth: number }) {
           className="flex items-center gap-2 py-1.5 rounded-md cursor-pointer text-sm group/item transition-colors"
           style={{
             paddingLeft, paddingRight: 8,
-            backgroundColor: isSelected || isMultiSelected ? "var(--bg-tertiary)" : "transparent",
-            color: isSelected || isMultiSelected ? "var(--text-primary)" : "var(--text-secondary)",
+            backgroundColor: isSelected || isMultiSelected ? "var(--surface-container-highest)" : "transparent",
+            color: isSelected || isMultiSelected ? "var(--on-surface)" : "var(--on-surface-variant)",
           }}
-          onMouseEnter={(e) => { if (!isSelected && !isMultiSelected) e.currentTarget.style.backgroundColor = "var(--bg-tertiary)"; }}
+          onMouseEnter={(e) => { if (!isSelected && !isMultiSelected) e.currentTarget.style.backgroundColor = "var(--surface-container-high)"; }}
           onMouseLeave={(e) => { if (!isSelected && !isMultiSelected) e.currentTarget.style.backgroundColor = "transparent"; }}
           onClick={(e) => actions.onSelectProject(e, p)}
           onDoubleClick={() => actions.onOpenProject(p)}
@@ -101,7 +100,7 @@ export function TreeNodeItem({ node, depth }: { node: TNode; depth: number }) {
           <span className="flex-1 min-w-0 flex items-center gap-1">
             <span className="block truncate">{p.name}</span>
             {p.cli_tool && (
-              <span className="inline-flex text-[9px] leading-tight px-1.5 py-0.5 rounded-full border shrink-0" style={{ backgroundColor: "var(--bg-primary)", color: "var(--accent)", borderColor: "var(--border)" }}>
+              <span className="inline-flex shrink-0 rounded-full bg-surface-container-high px-1.5 py-0.5 text-[9px] leading-tight text-primary">
                 {p.cli_tool}
               </span>
             )}
@@ -162,8 +161,8 @@ export function TreeNodeItem({ node, depth }: { node: TNode; depth: number }) {
     >
       <div
         className="flex items-center gap-1.5 py-1.5 rounded-md text-xs font-semibold uppercase tracking-wider cursor-pointer group/grp transition-colors"
-        style={{ paddingLeft, paddingRight: 8, color: "var(--text-muted)" }}
-        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "var(--bg-tertiary)"; }}
+        style={{ paddingLeft, paddingRight: 8, color: "var(--on-surface-variant)" }}
+        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "var(--surface-container-high)"; }}
         onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
         onClick={() => actions.toggleCollapsed(g.id)}
         onContextMenu={(e) => actions.onContextMenuGroup(e, g.id, g.name)}
@@ -172,7 +171,7 @@ export function TreeNodeItem({ node, depth }: { node: TNode; depth: number }) {
         <ChevronRight size={12} strokeWidth={2} style={{ transition: "transform 150ms", transform: isOpen ? "rotate(90deg)" : "rotate(0)" }} />
         <span style={{ color: "var(--accent)", flexShrink: 0 }}><Folder size={16} strokeWidth={1.5} /></span>
         <span className="flex-1 text-left truncate">{g.name}</span>
-        <span className="text-[10px] font-normal px-1.5 rounded-full" style={{ backgroundColor: "var(--bg-tertiary)", color: "var(--text-muted)" }}>{childCount}</span>
+        <span className="rounded-full bg-surface-container-high px-1.5 text-[10px] font-normal text-on-surface-variant">{childCount}</span>
         <span className="hidden group-hover/grp:flex items-center gap-0.5 shrink-0">
           <button onClick={(e) => { e.stopPropagation(); actions.onStartGroup(g.id); }} className="icon-btn" style={{ color: "var(--success)", opacity: 0.7 }} title="启动本目录"><Play size={14} strokeWidth={1.5} /></button>
           <button onClick={(e) => { e.stopPropagation(); actions.onAddSubGroup(g.id); }} className="icon-btn" style={{ color: "var(--text-muted)", opacity: 0.7 }} title="Add sub-group"><FolderPlus size={14} strokeWidth={1.5} /></button>
@@ -194,7 +193,7 @@ export function TreeNodeItem({ node, depth }: { node: TNode; depth: number }) {
           <div className="tree-collapse-inner" role="group">
             <DndContext sensors={[]} collisionDetection={closestCenter} onDragEnd={(event: DragEndEvent) => actions.onDragEnd(g.id, event)}>
               <SortableContext items={node.children.map((c) => c.type === "group" ? c.group.id : c.project.id)} strategy={verticalListSortingStrategy}>
-                <div className="border-l ml-3" style={{ borderColor: "var(--border)" }}>
+                <div className="ml-3 space-y-0.5">
                   {node.children.map((child) => (
                     <TreeNodeItem key={child.type === "group" ? `g:${child.group.id}` : `p:${child.project.id}`} node={child} depth={depth + 1} />
                   ))}

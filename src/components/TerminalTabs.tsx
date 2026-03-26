@@ -45,7 +45,7 @@ function SortableTab({ id, title, isActive, status, onActivate, onClose, onConte
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex h-full shrink-0 cursor-pointer items-center gap-2 border-r border-border px-3 text-[11px] font-medium ${isActive ? "bg-bg-primary text-text-primary" : "bg-transparent text-text-muted"}`}
+      className={`ui-interactive mx-1 flex h-7 shrink-0 cursor-pointer items-center gap-2 rounded-lg px-3 text-[11px] font-medium ${isActive ? "bg-surface-container-highest text-on-surface" : "bg-transparent text-on-surface-variant"}`}
       onClick={onActivate}
       onContextMenu={onContextMenu}
       {...attributes}
@@ -62,7 +62,7 @@ function SortableTab({ id, title, isActive, status, onActivate, onClose, onConte
       <button
         onClick={(e) => { e.stopPropagation(); onClose(); }}
         onPointerDown={(e) => e.stopPropagation()}
-        className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded border border-border text-text-muted opacity-60 transition-opacity hover:opacity-100"
+        className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded text-on-surface-variant opacity-60 transition-opacity hover:opacity-100"
         aria-label={`关闭终端 ${title}`}
         title={`关闭终端 ${title}`}
       >
@@ -141,11 +141,9 @@ export function TerminalTabs() {
   const sessionIds = sessions.map((s) => s.id);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full min-h-0 flex-col">
       {/* Tab bar */}
-      <div
-        className="flex h-9 items-center bg-bg-secondary"
-      >
+      <div className="ui-terminal-chrome flex h-10 items-center">
         {/* Scrollable tabs area */}
         <div className="flex-1 flex items-center h-full overflow-x-auto min-w-0">
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -169,7 +167,7 @@ export function TerminalTabs() {
         <div className="flex items-center shrink-0 px-2 gap-2">
           <button
             onClick={handleNewTab}
-            className="flex h-6 items-center gap-1.5 rounded-md border border-border bg-bg-tertiary px-2.5 text-xs text-text-muted opacity-90 transition-opacity hover:opacity-100"
+            className="ui-flat-action text-xs"
             title="New terminal"
             aria-label="新建终端"
           >
@@ -183,7 +181,7 @@ export function TerminalTabs() {
             onClick={() => {
               void toggleHistory();
             }}
-            className={`flex h-6 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs opacity-95 transition-opacity hover:opacity-100 ${historyOpen ? "bg-bg-primary text-text-primary" : "bg-bg-tertiary text-text-muted"}`}
+            className={`ui-flat-action text-xs ${historyOpen ? "ui-primary-action" : ""}`}
             title="历史会话"
             aria-label={historyOpen ? "关闭历史会话面板" : "打开历史会话面板"}
             aria-controls="history-workspace"
@@ -217,7 +215,7 @@ export function TerminalTabs() {
             >
               新建终端
             </button>
-            <div className="my-1 border-t border-border" />
+            <div className="my-1 h-px bg-surface-container-high" />
             {splits[contextMenu.sessionId] ? (
               <button
                 className="context-menu-item" role="menuitem"
@@ -256,38 +254,43 @@ export function TerminalTabs() {
       )}
 
       {/* Terminal panel */}
-      <div className="flex-1 min-h-0 relative overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden px-3 pb-3">
         {historyOpen ? (
-          <HistoryWorkspace />
+          <div className="ui-surface-card h-full min-h-0 overflow-hidden">
+            <HistoryWorkspace />
+          </div>
         ) : (
-          sessions.map((s) => (
-            <div
-              key={s.id}
-              className="absolute inset-0"
-              style={{ display: s.id === activeSessionId ? "block" : "none" }}
-            >
-              <SplitTerminalView
-                sessionId={s.id}
-                split={splits[s.id]}
-                isActive={s.id === activeSessionId}
-                fontSize={fontSize}
-                fontFamily={fontFamily}
-                resolvedTheme={resolvedTheme}
-                terminalThemeName={terminalThemeName}
-                lightThemePalette={lightThemePalette}
-                darkThemePalette={darkThemePalette}
-              />
-            </div>
-          ))
-        )}
-        {sessions.length === 0 && !useExternalTerminal && !historyOpen && (
-          <div className="flex items-center justify-center h-full">
-            <EmptyState
-              icon={<Terminal size={40} strokeWidth={1} />}
-              title="无活跃终端"
-              description="Ctrl+Shift+T 新建终端，或从左侧项目列表双击启动"
-              action={{ label: "打开终端", onClick: handleNewTab }}
-            />
+          <div className="ui-terminal-well relative h-full min-h-0">
+            {sessions.map((s) => (
+              <div
+                key={s.id}
+                className="absolute inset-0"
+                style={{ display: s.id === activeSessionId ? "block" : "none" }}
+              >
+                <SplitTerminalView
+                  sessionId={s.id}
+                  split={splits[s.id]}
+                  isActive={s.id === activeSessionId}
+                  fontSize={fontSize}
+                  fontFamily={fontFamily}
+                  resolvedTheme={resolvedTheme}
+                  terminalThemeName={terminalThemeName}
+                  lightThemePalette={lightThemePalette}
+                  darkThemePalette={darkThemePalette}
+                />
+              </div>
+            ))}
+            {sessions.length === 0 && !useExternalTerminal && (
+              <div className="flex h-full items-center justify-center">
+                <EmptyState
+                  icon={<Terminal size={40} strokeWidth={1} />}
+                  title="无活跃终端"
+                  description="Ctrl+Shift+T 新建终端，或从左侧项目列表双击启动"
+                  tone="inverse"
+                  action={{ label: "打开终端", onClick: handleNewTab }}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>

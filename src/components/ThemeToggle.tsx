@@ -11,16 +11,15 @@ export function ThemeToggle() {
   const setTheme = useSettingsStore((s) => s.setTheme);
 
   return (
-    <div className="flex rounded overflow-hidden border" style={{ borderColor: "var(--border)" }}>
+    <div className="ui-segmented" role="group" aria-label="应用主题切换">
       {OPTIONS.map((opt) => (
         <button
           key={opt.value}
           onClick={() => setTheme(opt.value)}
-          className="px-2 py-1 text-xs transition-colors"
-          style={{
-            backgroundColor: theme === opt.value ? "var(--accent)" : "var(--bg-tertiary)",
-            color: theme === opt.value ? "#fff" : "var(--text-muted)",
-          }}
+          className="ui-focus-ring ui-segmented-btn"
+          data-active={theme === opt.value ? "true" : "false"}
+          aria-label={`切换到 ${opt.label} 主题`}
+          aria-pressed={theme === opt.value}
         >
           {opt.label}
         </button>

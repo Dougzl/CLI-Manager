@@ -11,6 +11,7 @@ interface TemplateStore {
   createTemplate: (input: CreateTemplateInput) => Promise<CommandTemplate>;
   createSessionTemplate: (sessionId: string, input: CreateTemplateInput) => Promise<CommandTemplate>;
   updateTemplate: (id: string, input: UpdateTemplateInput) => Promise<void>;
+  updateSessionTemplate: (sessionId: string, id: string, input: UpdateTemplateInput) => Promise<void>;
   deleteTemplate: (id: string) => Promise<void>;
   deleteSessionTemplate: (sessionId: string, id: string) => void;
   pruneSessionTemplates: (activeSessionIds: string[]) => void;
@@ -113,6 +114,19 @@ export const useTemplateStore = create<TemplateStore>((set, get) => ({
     const db = await getDb();
     await db.execute("DELETE FROM command_templates WHERE id = $1", [id]);
     await get().fetchTemplates();
+  },
+
+  updateSessionTemplate: async (sessionId, id, input) => {
+    set((state) => {
+      const current = state.sessionTemplates[sessionId] ?? [];
+      const next = current.map((template) => (template.id === id ? { ...template, ...input } : template));
+      return {
+        sessionTemplates: {
+          ...state.sessionTemplates,
+          [sessionId]: next,
+        },
+      };
+    });
   },
 
   deleteSessionTemplate: (sessionId, id) => {

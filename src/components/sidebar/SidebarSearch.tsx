@@ -25,10 +25,10 @@ export function SidebarSearch({
 }: SidebarSearchProps) {
   if (collapsed) {
     return (
-      <div className="flex flex-col items-center gap-1 px-2 py-1">
+      <div className="flex flex-col items-center gap-1.5 px-2 py-1">
         <button
           onClick={onExpandSidebar}
-          className="flex h-7 w-7 items-center justify-center rounded-md bg-bg-tertiary text-text-muted transition-opacity hover:opacity-90"
+          className="ui-flat-action h-8 w-8 px-0"
           title="展开并搜索"
         >
           <Search size={14} strokeWidth={1.6} />
@@ -36,7 +36,7 @@ export function SidebarSearch({
         <button
           onClick={onStartSelected}
           disabled={selectedCount === 0}
-          className="flex h-7 w-7 items-center justify-center rounded-md bg-bg-tertiary text-text-muted transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          className="ui-flat-action h-8 w-8 px-0"
           title="启动已选"
         >
           <Play size={13} strokeWidth={1.7} />
@@ -47,8 +47,8 @@ export function SidebarSearch({
 
   return (
     <div className="px-3 py-2">
-      <div className="flex items-center gap-2 rounded-md border border-border bg-bg-tertiary px-2.5 py-1.5">
-        <span className="text-text-muted">
+      <div className="flex items-center gap-2 rounded-xl bg-surface-container-highest px-2.5 py-1.5">
+        <span className="text-on-surface-variant">
           <Search size={14} strokeWidth={1.5} />
         </span>
         <input
@@ -56,7 +56,7 @@ export function SidebarSearch({
           placeholder="Search..."
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="flex-1 bg-transparent text-sm text-text-primary outline-none"
+          className="flex-1 bg-transparent text-sm text-on-surface outline-none"
         />
       </div>
       <div className="mt-2 flex items-center gap-2">

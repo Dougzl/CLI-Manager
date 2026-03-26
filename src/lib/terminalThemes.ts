@@ -4,6 +4,8 @@ export interface TerminalThemePreset {
   id: string;
   name: string;
   theme: ITheme;
+  family?: string;
+  tone?: "light" | "dark";
 }
 
 export type LightTerminalPalette = "warm-paper" | "cream-green" | "ink-red";
@@ -355,21 +357,21 @@ const githubLight: ITheme = {
 };
 
 export const TERMINAL_THEME_PRESETS: TerminalThemePreset[] = [
-  { id: "tokyoNightDark", name: "Tokyo Night Dark", theme: tokyoNightDark },
-  { id: "tokyoNightLight", name: "Tokyo Night Light", theme: tokyoNightLight },
-  { id: "forestNightDark", name: "Forest Night Dark", theme: forestNightDark },
-  { id: "graphiteRedDark", name: "Graphite Red Dark", theme: graphiteRedDark },
-  { id: "warmPaperLight", name: "Warm Paper Light", theme: warmPaperLight },
-  { id: "creamGreenLight", name: "Cream Green Light", theme: creamGreenLight },
-  { id: "inkRedLight", name: "Ink Red Light", theme: inkRedLight },
-  { id: "dracula", name: "Dracula", theme: dracula },
-  { id: "monokai", name: "Monokai", theme: monokai },
-  { id: "nord", name: "Nord", theme: nord },
-  { id: "solarizedDark", name: "Solarized Dark", theme: solarizedDark },
-  { id: "solarizedLight", name: "Solarized Light", theme: solarizedLight },
-  { id: "oneDark", name: "One Dark", theme: oneDark },
-  { id: "githubDark", name: "GitHub Dark", theme: githubDark },
-  { id: "githubLight", name: "GitHub Light", theme: githubLight },
+  { id: "tokyoNightDark", name: "Tokyo Night Dark", theme: tokyoNightDark, family: "tokyo-night", tone: "dark" },
+  { id: "tokyoNightLight", name: "Tokyo Night Light", theme: tokyoNightLight, family: "tokyo-night", tone: "light" },
+  { id: "forestNightDark", name: "Forest Night Dark", theme: forestNightDark, family: "atelier", tone: "dark" },
+  { id: "graphiteRedDark", name: "Graphite Red Dark", theme: graphiteRedDark, family: "atelier", tone: "dark" },
+  { id: "warmPaperLight", name: "Warm Paper Light", theme: warmPaperLight, family: "atelier", tone: "light" },
+  { id: "creamGreenLight", name: "Cream Green Light", theme: creamGreenLight, family: "atelier", tone: "light" },
+  { id: "inkRedLight", name: "Ink Red Light", theme: inkRedLight, family: "atelier", tone: "light" },
+  { id: "dracula", name: "Dracula", theme: dracula, family: "classic", tone: "dark" },
+  { id: "monokai", name: "Monokai", theme: monokai, family: "classic", tone: "dark" },
+  { id: "nord", name: "Nord", theme: nord, family: "nord", tone: "dark" },
+  { id: "solarizedDark", name: "Solarized Dark", theme: solarizedDark, family: "solarized", tone: "dark" },
+  { id: "solarizedLight", name: "Solarized Light", theme: solarizedLight, family: "solarized", tone: "light" },
+  { id: "oneDark", name: "One Dark", theme: oneDark, family: "one-dark", tone: "dark" },
+  { id: "githubDark", name: "GitHub Dark", theme: githubDark, family: "github", tone: "dark" },
+  { id: "githubLight", name: "GitHub Light", theme: githubLight, family: "github", tone: "light" },
 ];
 
 const themeMap = new Map(TERMINAL_THEME_PRESETS.map((p) => [p.id, p.theme]));

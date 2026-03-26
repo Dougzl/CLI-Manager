@@ -195,8 +195,11 @@ export function CommandTemplatePanel() {
       <button
         ref={triggerRef}
         onClick={() => setOpen((prev) => !prev)}
-        className="flex h-6 items-center gap-1.5 rounded-md border border-border bg-bg-tertiary px-2.5 text-xs text-text-muted opacity-90 transition-opacity hover:opacity-100"
+        className="ui-flat-action text-xs"
         title="Command templates"
+        aria-label="打开命令模板面板"
+        aria-expanded={open}
+        aria-controls="command-template-panel"
       >
         <TerminalSquare size={14} strokeWidth={1.5} />
         <span>Templates</span>
@@ -205,16 +208,18 @@ export function CommandTemplatePanel() {
       {open && (
         <Portal>
           <div
+            id="command-template-panel"
             ref={panelRef}
-            className="fixed z-40 w-72 overflow-hidden rounded-lg border border-border bg-bg-secondary shadow-lg animate-slide-down"
+            className="ui-glass ui-bloom-shadow fixed z-40 w-72 overflow-hidden rounded-xl animate-slide-down"
             style={{ left: panelPosition.left, top: panelPosition.top }}
           >
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-border px-3 py-2">
-              <span className="text-xs font-semibold text-text-primary">命令模板</span>
+            <div className="flex items-center justify-between px-3 py-2">
+              <span className="text-xs font-semibold text-on-surface">命令模板</span>
               <button
                 onClick={() => setShowForm((prev) => !prev)}
-                className="flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-[10px] text-accent"
+                className="ui-flat-action h-6 gap-1 px-2 text-[10px] text-primary"
+                aria-label={showForm ? "收起模板表单" : "展开模板表单"}
               >
                 <Plus size={10} strokeWidth={2} /> 新增
               </button>
@@ -222,32 +227,32 @@ export function CommandTemplatePanel() {
 
             {/* New template form */}
             {showForm && (
-              <div className="space-y-1.5 border-b border-border px-3 py-2">
+              <div className="space-y-1.5 px-3 py-2">
                 <input
                   type="text"
                   placeholder="名称"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded border border-border bg-bg-tertiary px-2 py-1 text-xs text-text-primary outline-none"
+                  className="ui-focus-ring w-full rounded-lg bg-surface-container-highest px-2 py-1 text-xs text-on-surface outline-none"
                 />
                 <input
                   type="text"
                   placeholder="命令（支持 ${projectPath}, ${projectName}）"
                   value={command}
                   onChange={(e) => setCommand(e.target.value)}
-                  className="w-full rounded border border-border bg-bg-tertiary px-2 py-1 text-xs text-text-primary outline-none"
+                  className="ui-focus-ring w-full rounded-lg bg-surface-container-highest px-2 py-1 text-xs text-on-surface outline-none"
                 />
                 <input
                   type="text"
                   placeholder="描述（可选）"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full rounded border border-border bg-bg-tertiary px-2 py-1 text-xs text-text-primary outline-none"
+                  className="ui-focus-ring w-full rounded-lg bg-surface-container-highest px-2 py-1 text-xs text-on-surface outline-none"
                 />
                 <select
                   value={scope}
                   onChange={(e) => setScope(e.target.value as "global" | "project" | "session")}
-                  className="w-full rounded border border-border bg-bg-tertiary px-2 py-1 text-xs text-text-primary outline-none"
+                  className="ui-focus-ring w-full rounded-lg bg-surface-container-highest px-2 py-1 text-xs text-on-surface outline-none"
                 >
                   <option value="global">全局模板</option>
                   <option value="project">项目模板</option>
@@ -257,7 +262,7 @@ export function CommandTemplatePanel() {
                   <select
                     value={projectId ?? ""}
                     onChange={(e) => setProjectId(e.target.value || null)}
-                    className="w-full rounded border border-border bg-bg-tertiary px-2 py-1 text-xs text-text-primary outline-none"
+                    className="ui-focus-ring w-full rounded-lg bg-surface-container-highest px-2 py-1 text-xs text-on-surface outline-none"
                   >
                     <option value="">请选择项目</option>
                     {projects.map((p) => (
@@ -266,21 +271,23 @@ export function CommandTemplatePanel() {
                   </select>
                 )}
                 {scope === "session" && (
-                  <div className="text-[10px] text-text-muted">
+                  <div className="text-[10px] text-on-surface-variant">
                     {activeSessionId ? `绑定到当前会话 ${activeSessionId}` : "请先打开会话终端"}
                   </div>
                 )}
                 <div className="flex justify-end gap-1">
                   <button
                     onClick={() => setShowForm(false)}
-                    className="rounded border border-border px-2 py-0.5 text-[10px] text-text-muted"
+                    className="ui-flat-action h-6 px-2 text-[10px]"
+                    aria-label="取消创建模板"
                   >
                     取消
                   </button>
                   <button
                     onClick={handleCreate}
                     disabled={(scope === "project" && !projectId) || (scope === "session" && !activeSessionId)}
-                    className="rounded bg-accent px-2 py-0.5 text-[10px] text-white disabled:opacity-50"
+                    className="ui-flat-action ui-primary-action h-6 px-2 text-[10px] disabled:opacity-50"
+                    aria-label="保存模板"
                   >
                     保存
                   </button>
@@ -311,17 +318,17 @@ export function CommandTemplatePanel() {
                 visibleTemplates.map((t) => (
                   <div
                     key={t.id}
-                    className="group flex cursor-pointer items-center gap-2 px-3 py-1.5 text-text-secondary transition-colors hover:bg-bg-tertiary"
+                    className="group ui-interactive flex cursor-pointer items-center gap-2 px-3 py-1.5 text-on-surface-variant"
                     onClick={() => handleRun(t)}
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
-                        <span className="truncate text-xs font-medium text-text-primary">{t.name}</span>
-                        <span className="shrink-0 rounded-full border border-border px-1 text-[9px] text-text-muted">
+                        <span className="truncate text-xs font-medium text-on-surface">{t.name}</span>
+                        <span className="shrink-0 rounded-full bg-surface-container-high px-1 text-[9px] text-on-surface-variant">
                           {scopeLabel(t)}
                         </span>
                       </div>
-                      <div className="truncate text-[10px] text-text-muted">{t.command}</div>
+                      <div className="truncate text-[10px] text-on-surface-variant">{t.command}</div>
                     </div>
                     <button
                       onClick={(e) => {
@@ -333,6 +340,7 @@ export function CommandTemplatePanel() {
                         }
                       }}
                       className="hidden shrink-0 text-danger opacity-70 group-hover:block"
+                      aria-label={`删除模板 ${t.name}`}
                     >
                       <Trash2 size={12} strokeWidth={1.5} />
                     </button>
@@ -343,7 +351,7 @@ export function CommandTemplatePanel() {
 
             {/* Footer hint */}
             {!activeSessionId && (
-              <div className="border-t border-border px-3 py-1 text-[10px] text-text-muted">
+              <div className="px-3 py-1 text-[10px] text-on-surface-variant">
                 当前无活跃终端，仅可管理全局/项目模板
               </div>
             )}

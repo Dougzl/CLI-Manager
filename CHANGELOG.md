@@ -1,5 +1,23 @@
 # Changelog
 
+## [Unreleased] - 2026-03-26
+
+### UI Refactor（M0-M5 + 主界面风格重构）
+- 设置系统完成容器拆分：新增 `src/components/settings/` 下布局、导航、顶部栏与四个页面（通用/终端主题/快捷键/命令模板），`SettingsModal` 改为页面级容器。
+- 设置弹层改为全屏覆盖并保留系统标题栏区域，修复打开设置后右侧大面积留白与布局错位问题；`SettingsModal` 通过 `Portal` 挂载，避免受侧栏容器裁剪影响。
+- 主界面按 `prototype/风格/DESIGN.md` 重构视觉体系：落地 Surface Layering、No-Line Rule、Primary 渐变 CTA、Glass 浮层与统一状态层级。
+- 侧栏与终端工作区重构：`Sidebar`、`ProjectTree`、`TreeNodeItem`、`TerminalTabs`、`WindowTitleBar`、`EmptyState` 样式统一，去除硬分割线，改为背景层级区分。
+- Command Template / Command History 面板样式统一为玻璃浮层；上下文菜单、按钮、输入框、分段控件统一交互反馈与 focus ring。
+
+### 主题与可读性修复
+- 修复“浅色应用 + 黑色终端”场景下终端空态文案对比度不足问题：新增 inverse 文本 token，并为终端空态启用高对比模式。
+- 增强“配色方案卡片”选中态可见性：增加明显高亮环、选中徽标与色块强化，提升当前方案识别效率。
+- 修复配色联动问题：浅色配色方案不再固定红色强调色，左侧树与选中态颜色随 `warm-paper / cream-green / ink-red` 方案切换。
+
+### 其他
+- 终端主题预设补充元数据（`family` / `tone`）用于主题页分类展示与筛选。
+- 命令模板作用域支持强化（全局/项目/会话）并补充相关设置页交互收口。
+
 ## [V0.0.4] - 2026-03-25
 
 ### Phase P3 分析看板图表升级（S1~S4）

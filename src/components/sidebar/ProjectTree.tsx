@@ -67,7 +67,7 @@ export function ProjectTree({
 
   if (initialLoading) {
     return (
-      <div className="flex-1 overflow-y-auto px-1.5 pb-2">
+      <div className="flex-1 overflow-y-auto px-1.5 pb-2 pt-1">
         <SidebarSkeleton />
       </div>
     );
@@ -76,13 +76,13 @@ export function ProjectTree({
   if (collapsed) {
     const compactItems = flattenTree(tree);
     return (
-      <div className="flex-1 overflow-y-auto px-1 pb-2">
+      <div className="flex-1 overflow-y-auto px-1 pb-2 pt-1">
         {compactItems.length === 0 && (
           <div className="flex flex-col items-center gap-2 py-3 text-text-muted">
             <Terminal size={20} strokeWidth={1.2} className="opacity-50" />
             <button
               onClick={onQuickAddProject}
-              className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-white"
+              className="ui-flat-action ui-primary-action h-8 w-8 px-0"
               title="快速添加项目"
             >
               <Plus size={12} strokeWidth={2} />
@@ -96,7 +96,7 @@ export function ProjectTree({
             return (
               <button
                 key={item.key}
-                className="mx-auto my-0.5 flex h-8 w-8 items-center justify-center rounded-md text-accent transition-colors hover:bg-bg-tertiary"
+                className="ui-flat-action mx-auto my-0.5 h-8 w-8 px-0 text-primary"
                 title={item.label}
                 onContextMenu={(e) => actions.onContextMenuGroup(e, groupNode.group.id, groupNode.group.name)}
               >
@@ -116,8 +116,8 @@ export function ProjectTree({
               key={item.key}
               className={`mx-auto my-0.5 flex h-8 w-8 items-center justify-center rounded-md text-xs font-semibold transition-colors ${
                 selected
-                  ? "bg-accent text-white"
-                  : "bg-bg-tertiary text-text-secondary hover:bg-bg-primary"
+                  ? "ui-primary-action text-white"
+                  : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest"
               }`}
               title={project.name}
               onClick={() => actions.onOpenProject(project)}
@@ -132,7 +132,7 @@ export function ProjectTree({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto px-1.5 pb-2">
+    <div className="flex-1 overflow-y-auto px-1.5 pb-2 pt-1">
       {newGroupParentId === "__root__" && (
         <div className="flex items-center gap-1.5 px-2 py-1.5">
           <span className="shrink-0 text-accent">
@@ -142,7 +142,7 @@ export function ProjectTree({
             ref={(ref) => {
               ref?.focus();
             }}
-            className="flex-1 rounded border border-accent bg-bg-tertiary px-1 py-0.5 text-xs text-text-primary outline-none"
+            className="ui-focus-ring flex-1 rounded-md bg-surface-container-highest px-1.5 py-1 text-xs text-on-surface outline-none"
             onBlur={(e) => {
               const value = e.currentTarget.value.trim();
               if (value) onCreateRootGroup(value);

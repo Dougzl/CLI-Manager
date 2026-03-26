@@ -587,7 +587,7 @@ export function Sidebar({ onOpenStats }: SidebarProps) {
 
   return (
     <aside
-      className={`relative flex shrink-0 select-none flex-col border-r border-border bg-bg-secondary ${
+      className={`ui-sidebar-shell relative flex shrink-0 select-none flex-col ${
         sidebarResizing ? "transition-none" : "transition-[width] duration-150"
       }`}
       style={{ width: sidebarWidth }}
@@ -789,12 +789,14 @@ export function Sidebar({ onOpenStats }: SidebarProps) {
         onConfirm={confirmDialog?.onConfirm ?? (() => {})}
         onClose={() => setConfirmAction(null)}
       />
-      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
+      <Portal>
+        <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
+      </Portal>
 
       <div
         onMouseDown={startResize}
-        className="absolute bottom-0 right-0 top-0 z-10 w-1 cursor-col-resize transition-colors hover:bg-accent"
-        style={{ opacity: 0.4 }}
+        className="absolute bottom-0 right-0 top-0 z-10 w-1.5 cursor-col-resize transition-colors hover:bg-surface-container-highest"
+        style={{ opacity: 0.8 }}
       />
     </aside>
   );

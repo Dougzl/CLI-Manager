@@ -15,24 +15,24 @@ export function SidebarHeader({
 }: SidebarHeaderProps) {
   if (collapsed) {
     return (
-      <div className="flex flex-col items-center gap-1 px-2 pb-1 pt-2">
+      <div className="flex flex-col items-center gap-1.5 px-2 pb-2 pt-3">
         <button
           onClick={onToggleCollapse}
-          className="flex h-7 w-7 items-center justify-center rounded-md bg-bg-tertiary text-text-muted transition-opacity hover:opacity-90"
+          className="ui-flat-action h-8 w-8 px-0"
           title="展开侧边栏"
         >
           <ChevronRight size={14} strokeWidth={1.8} />
         </button>
         <button
           onClick={onCreateGroup}
-          className="flex h-7 w-7 items-center justify-center rounded-md bg-bg-tertiary text-text-muted transition-opacity hover:opacity-90"
+          className="ui-flat-action h-8 w-8 px-0"
           title="新建分组"
         >
           <FolderPlus size={14} strokeWidth={1.5} />
         </button>
         <button
           onClick={onCreateProject}
-          className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-white transition-opacity hover:opacity-90"
+          className="ui-flat-action ui-primary-action h-8 w-8 px-0"
           title="新建终端"
         >
           <Plus size={13} strokeWidth={2} />
@@ -43,25 +43,25 @@ export function SidebarHeader({
 
   return (
     <div className="flex items-center justify-between px-3 pb-1 pt-3">
-      <span className="text-xs font-bold uppercase tracking-widest text-text-muted">Projects</span>
+      <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-on-surface-variant">Projects</span>
       <div className="flex items-center gap-1">
         <button
           onClick={onToggleCollapse}
-          className="flex h-7 w-7 items-center justify-center rounded-md bg-bg-tertiary text-text-muted transition-opacity hover:opacity-90"
+          className="ui-flat-action h-8 w-8 px-0"
           title="折叠侧边栏"
         >
           <ChevronRight size={14} strokeWidth={1.8} className="rotate-180" />
         </button>
         <button
           onClick={onCreateGroup}
-          className="flex items-center gap-1 rounded-md bg-bg-tertiary px-2 py-1 text-xs text-text-muted transition-opacity hover:opacity-90"
+          className="ui-flat-action text-xs"
           title="新建分组"
         >
           <FolderPlus size={14} strokeWidth={1.5} />
         </button>
         <button
           onClick={onCreateProject}
-          className="flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-xs text-white transition-opacity hover:opacity-90"
+          className="ui-flat-action ui-primary-action px-2.5 text-xs"
         >
           + New
         </button>
