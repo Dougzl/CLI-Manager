@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast, Toaster } from "sonner";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Sidebar } from "./components/sidebar";
 import { TerminalTabs } from "./components/TerminalTabs";
 import { CommandPalette } from "./components/CommandPalette";
 import { StatsPanel } from "./components/stats/StatsPanel";
 import { WindowTitleBar } from "./components/WindowTitleBar";
 import { useSettingsStore } from "./stores/settingsStore";
+import { useProjectStore } from "./stores/projectStore";
+import { useSessionStore } from "./stores/sessionStore";
+import { useTerminalStore } from "./stores/terminalStore";
+import { useSyncStore } from "./stores/syncStore";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useHistoryStore } from "./stores/historyStore";
 import { createPerfMarker } from "./lib/logger";
@@ -31,7 +36,27 @@ function App() {
   useKeyboardShortcuts();
 
   useEffect(() => {
-    loadSettings();
+    const init = async () => {
+      // 1. 加载设置
+      await loadSettings();
+
+      // 2. 加载同步配置
+      await useSyncStore.getState().load();
+
+      // 3. 加载会话持久化数据
+      await useSessionStore.getState().load();
+
+      // 4. 加载项目列表
+      await useProjectStore.getState().fetchAll();
+
+      // 5. 恢复终端会话
+      const { projects, projectHealth } = useProjectStore.getState();
+      const projectMap = new Map(projects.map((p) => [p.id, p]));
+      await useTerminalStore.getState().restoreSessions(projectMap, projectHealth);
+    };
+    init().catch((err) => {
+      toast.error("初始化失败", { description: String(err) });
+    });
   }, [loadSettings]);
 
   useEffect(() => {
@@ -39,6 +64,20 @@ function App() {
     document.documentElement.setAttribute("data-light-palette", lightThemePalette);
     document.documentElement.setAttribute("data-dark-palette", darkThemePalette);
   }, [resolvedTheme, lightThemePalette, darkThemePalette]);
+
+  // 应用关闭时清除会话持久化数据（不恢复主动关闭时的终端）
+  useEffect(() => {
+    const appWindow = getCurrentWindow();
+    let unlistenPromise: Promise<() => void> | null = null;
+
+    unlistenPromise = appWindow.onCloseRequested(async () => {
+      await useSessionStore.getState().clear();
+    });
+
+    return () => {
+      unlistenPromise?.then((fn) => fn()).catch(() => {});
+    };
+  }, []);
 
   const handleOpenStats = useCallback(() => {
     const stopPerf = createPerfMarker("stats.open", {

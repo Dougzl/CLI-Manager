@@ -1,9 +1,15 @@
 export {
   AlertTriangle,
   BarChart3,
+  Check,
   ChevronDown,
   ChevronRight,
   Clock,
+  Cloud,
+  Copy,
+  Download,
+  Eye,
+  EyeOff,
   Folder,
   FolderPlus,
   Pencil,
@@ -14,5 +20,6 @@ export {
   Terminal,
   TerminalSquare,
   Trash2,
+  Upload,
   X,
 } from "lucide-react";

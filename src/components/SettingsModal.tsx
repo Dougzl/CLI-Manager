@@ -5,8 +5,9 @@ import { GeneralSettingsPage } from "./settings/pages/GeneralSettingsPage";
 import { ThemeSettingsPage } from "./settings/pages/ThemeSettingsPage";
 import { ShortcutSettingsPage } from "./settings/pages/ShortcutSettingsPage";
 import { TemplateSettingsPage } from "./settings/pages/TemplateSettingsPage";
+import { SyncSettingsPage } from "./settings/pages/SyncSettingsPage";
 
-type SettingsTab = "general" | "terminal-theme" | "shortcuts" | "templates";
+type SettingsTab = "general" | "terminal-theme" | "shortcuts" | "templates" | "sync";
 
 interface SettingsTabConfig {
   label: string;
@@ -15,7 +16,7 @@ interface SettingsTabConfig {
   searchPlaceholder: string;
 }
 
-const SETTINGS_TAB_ORDER: SettingsTab[] = ["general", "terminal-theme", "shortcuts", "templates"];
+const SETTINGS_TAB_ORDER: SettingsTab[] = ["general", "terminal-theme", "shortcuts", "templates", "sync"];
 
 const SETTINGS_TAB_CONFIG: Record<SettingsTab, SettingsTabConfig> = {
   general: {
@@ -41,6 +42,12 @@ const SETTINGS_TAB_CONFIG: Record<SettingsTab, SettingsTabConfig> = {
     title: "命令模板",
     description: "管理全局模板与项目模板的新增、编辑与删除。",
     searchPlaceholder: "搜索命令模板（预留）",
+  },
+  sync: {
+    label: "云同步",
+    title: "云同步",
+    description: "通过 WebDAV 在多设备间同步配置。",
+    searchPlaceholder: "搜索云同步设置（预留）",
   },
 };
 
@@ -95,7 +102,9 @@ export function SettingsModal({ open, onClose }: Props) {
     if (activeTab === "general") return <GeneralSettingsPage />;
     if (activeTab === "terminal-theme") return <ThemeSettingsPage />;
     if (activeTab === "shortcuts") return <ShortcutSettingsPage searchValue={searchValue} />;
-    return <TemplateSettingsPage searchValue={searchValue} />;
+    if (activeTab === "templates") return <TemplateSettingsPage searchValue={searchValue} />;
+    if (activeTab === "sync") return <SyncSettingsPage />;
+    return null;
   })();
 
   return (

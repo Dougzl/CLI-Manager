@@ -77,6 +77,7 @@ export function Sidebar({ onOpenStats }: SidebarProps) {
   );
 
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [cloningProject, setCloningProject] = useState<Project | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [addToGroupId, setAddToGroupId] = useState<string | null>(null);
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
@@ -388,6 +389,10 @@ export function Sidebar({ onOpenStats }: SidebarProps) {
     [useExternalTerminal, createSession]
   );
 
+  const handleCloneProject = useCallback((project: Project) => {
+    setCloningProject(project);
+  }, []);
+
   const handleRequestDeleteProject = useCallback((project: Project) => {
     setConfirmAction({ kind: "delete-project", project });
   }, []);
@@ -504,6 +509,7 @@ export function Sidebar({ onOpenStats }: SidebarProps) {
       onSelectProjectByKeyboard: handleSelectProjectByKeyboard,
       onOpenProject: handleOpen,
       onEditProject: setEditingProject,
+      onCloneProject: handleCloneProject,
       onDeleteProject: handleRequestDeleteProject,
       onAddSubGroup: (id) => setNewGroupParentId(id),
       onAddProjectToGroup: handleAddProjectToGroup,
@@ -530,6 +536,7 @@ export function Sidebar({ onOpenStats }: SidebarProps) {
       handleSelectProject,
       handleSelectProjectByKeyboard,
       handleOpen,
+      handleCloneProject,
       handleRequestDeleteProject,
       handleAddProjectToGroup,
       handleStartGroup,
@@ -684,6 +691,16 @@ export function Sidebar({ onOpenStats }: SidebarProps) {
                   className="context-menu-item"
                   role="menuitem"
                   onClick={() => {
+                    handleCloneProject(contextMenu.project);
+                    setContextMenu(null);
+                  }}
+                >
+                  Clone
+                </button>
+                <button
+                  className="context-menu-item"
+                  role="menuitem"
+                  onClick={() => {
                     handleToggleSelection(contextMenu.project);
                     setContextMenu(null);
                   }}
@@ -789,6 +806,12 @@ export function Sidebar({ onOpenStats }: SidebarProps) {
             setShowAdd(false);
             setAddToGroupId(null);
           }}
+        />
+      )}
+      {cloningProject && (
+        <ConfigModal
+          cloneFrom={cloningProject}
+          onClose={() => setCloningProject(null)}
         />
       )}
       {editingProject && <ConfigModal project={editingProject} onClose={() => setEditingProject(null)} />}

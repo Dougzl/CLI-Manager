@@ -2,9 +2,10 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { toast } from "sonner";
-import type { TerminalSession } from "../lib/types";
+import type { TerminalSession, PersistedSplit, Project } from "../lib/types";
 import { logError } from "../lib/logger";
 import { useSettingsStore } from "./settingsStore";
+import { useSessionStore } from "./sessionStore";
 import { normalizeShellKey } from "../lib/shell";
 
 export type SessionStatus = "running" | "exited" | "error";
@@ -33,7 +34,11 @@ interface TerminalStore {
   splitTerminal: (sessionId: string, direction: "horizontal" | "vertical", cwd?: string, shell?: string) => Promise<void>;
   unsplitTerminal: (sessionId: string) => Promise<void>;
   setSplitRatio: (sessionId: string, ratio: number) => void;
+  restoreSessions: (projectMap: Map<string, Project>, projectHealth: Record<string, boolean>) => Promise<void>;
 }
+
+// 防止 StrictMode 双重调用
+let restoreInProgress = false;
 
 export const useTerminalStore = create<TerminalStore>((set, get) => ({
   sessions: [],
@@ -70,6 +75,10 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
       id: sessionId,
       projectId,
       title: title ?? "Terminal",
+      cwd,
+      shell: resolvedShell,
+      envVars,
+      startupCmd,
     };
 
     const unlisten = await listen<PtyStatusPayload>(`pty-status-${sessionId}`, (event) => {
@@ -79,12 +88,17 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
       }));
     });
 
-    set((state) => ({
-      sessions: [...state.sessions, session],
+    const newSessions = [...get().sessions, session];
+    set({
+      sessions: newSessions,
       activeSessionId: sessionId,
-      sessionStatuses: { ...state.sessionStatuses, [sessionId]: "running" },
-      statusListeners: { ...state.statusListeners, [sessionId]: unlisten },
-    }));
+      sessionStatuses: { ...get().sessionStatuses, [sessionId]: "running" },
+      statusListeners: { ...get().statusListeners, [sessionId]: unlisten },
+    });
+
+    // 持久化到 sessionStore
+    await useSessionStore.getState().saveSessions(newSessions);
+    await useSessionStore.getState().saveActiveSessionId(sessionId);
 
     if (startupCmd) {
       setTimeout(() => {
@@ -122,19 +136,34 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
       delete newListeners[split.secondSessionId];
     }
 
+    const newActiveId =
+      get().activeSessionId === id
+        ? remaining[remaining.length - 1]?.id ?? null
+        : get().activeSessionId;
+
     set({
       sessions: remaining,
-      activeSessionId:
-        get().activeSessionId === id
-          ? remaining[remaining.length - 1]?.id ?? null
-          : get().activeSessionId,
+      activeSessionId: newActiveId,
       sessionStatuses: newStatuses,
       statusListeners: newListeners,
       splits: newSplits,
     });
+
+    // 更新持久化
+    await useSessionStore.getState().saveSessions(remaining);
+    await useSessionStore.getState().saveActiveSessionId(newActiveId);
+
+    // 更新 splits（移除已关闭的主会话对应的 split）
+    const persistedSplits = useSessionStore.getState().splits.filter(
+      (s) => s.primarySessionIndex !== get().sessions.findIndex((sess) => sess.id === id)
+    );
+    await useSessionStore.getState().saveSplits(persistedSplits);
   },
 
-  setActive: (id) => set({ activeSessionId: id }),
+  setActive: (id) => {
+    set({ activeSessionId: id });
+    useSessionStore.getState().saveActiveSessionId(id).catch(() => {});
+  },
 
   reorderSessions: (fromId, toId) => {
     const list = [...get().sessions];
@@ -144,6 +173,7 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
     const [moved] = list.splice(fromIdx, 1);
     list.splice(toIdx, 0, moved);
     set({ sessions: list });
+    useSessionStore.getState().saveSessions(list).catch(() => {});
   },
 
   splitTerminal: async (sessionId, direction, cwd, shell) => {
@@ -187,6 +217,23 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
       sessionStatuses: { ...state.sessionStatuses, [secondSessionId]: "running" },
       statusListeners: { ...state.statusListeners, [secondSessionId]: unlisten },
     }));
+
+    // 持久化分屏信息
+    const primaryIndex = get().sessions.findIndex((s) => s.id === sessionId);
+    if (primaryIndex >= 0) {
+      const currentSplits = useSessionStore.getState().splits;
+      const newPersistedSplits: PersistedSplit[] = [
+        ...currentSplits.filter((s) => s.primarySessionIndex !== primaryIndex),
+        {
+          primarySessionIndex: primaryIndex,
+          direction,
+          secondSessionCwd: cwd,
+          secondSessionShell: resolvedShell,
+          ratio: 0.5,
+        },
+      ];
+      await useSessionStore.getState().saveSplits(newPersistedSplits);
+    }
   },
 
   unsplitTerminal: async (sessionId) => {
@@ -204,16 +251,216 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
     delete newSplits[sessionId];
 
     set({ sessionStatuses: newStatuses, statusListeners: newListeners, splits: newSplits });
+
+    // 更新持久化 splits
+    const primaryIndex = get().sessions.findIndex((s) => s.id === sessionId);
+    const persistedSplits = useSessionStore.getState().splits.filter(
+      (s) => s.primarySessionIndex !== primaryIndex
+    );
+    await useSessionStore.getState().saveSplits(persistedSplits);
   },
 
   setSplitRatio: (sessionId, ratio) => {
     const split = get().splits[sessionId];
     if (!split) return;
+    const clampedRatio = Math.max(0.2, Math.min(0.8, ratio));
     set((state) => ({
       splits: {
         ...state.splits,
-        [sessionId]: { ...split, ratio: Math.max(0.2, Math.min(0.8, ratio)) },
+        [sessionId]: { ...split, ratio: clampedRatio },
       },
     }));
+
+    // 更新持久化 ratio
+    const primaryIndex = get().sessions.findIndex((s) => s.id === sessionId);
+    if (primaryIndex >= 0) {
+      const currentSplits = useSessionStore.getState().splits;
+      const newPersistedSplits = currentSplits.map((s) =>
+        s.primarySessionIndex === primaryIndex ? { ...s, ratio: clampedRatio } : s
+      );
+      useSessionStore.getState().saveSplits(newPersistedSplits).catch(() => {});
+    }
+  },
+
+  restoreSessions: async (projectMap, projectHealth) => {
+    // 防止 StrictMode 双重调用
+    if (restoreInProgress) return;
+    restoreInProgress = true;
+
+    try {
+      const sessionStore = useSessionStore.getState();
+      const persistedSessions = sessionStore.sessions;
+      const persistedSplits = sessionStore.splits;
+      const persistedActiveId = sessionStore.activeSessionId;
+
+      if (persistedSessions.length === 0) return;
+
+    const restoredSessions: TerminalSession[] = [];
+    const restoredStatuses: Record<string, SessionStatus> = {};
+    const restoredListeners: Record<string, UnlistenFn> = {};
+    const restoredSplits: Record<string, SplitState> = {};
+    const skippedSessions: string[] = [];
+
+    const newIdMap: Record<string, string> = {}; // oldId -> newId
+
+    for (let i = 0; i < persistedSessions.length; i++) {
+      const ps = persistedSessions[i];
+
+      // 检查项目是否存在
+      if (ps.projectId) {
+        const project = projectMap.get(ps.projectId);
+        if (!project) {
+          skippedSessions.push(ps.title ?? `会话 ${i + 1}`);
+          continue;
+        }
+        // 检查路径是否有效
+        if (!projectHealth[ps.projectId]) {
+          // 路径无效但仍创建终端，显示警告
+          toast.warning(`项目路径无效: ${project.name}`, {
+            description: `路径 ${project.path} 不存在，终端可能无法正常工作`,
+          });
+        }
+      }
+
+      // 重建 PTY
+      const normalizedShell = normalizeShellKey(ps.shell);
+      const resolvedShell = normalizedShell ?? (ps.projectId ? null : normalizeShellKey(useSettingsStore.getState().defaultShell) ?? null);
+
+      let newSessionId: string;
+      try {
+        newSessionId = await invoke<string>("pty_create", {
+          cwd: ps.cwd ?? null,
+          envVars: ps.envVars ?? null,
+          shell: resolvedShell,
+        });
+      } catch (err) {
+        logError("Failed to restore session", { session: ps, err });
+        skippedSessions.push(ps.title ?? `会话 ${i + 1}`);
+        continue;
+      }
+
+      newIdMap[ps.id] = newSessionId;
+
+      const unlisten = await listen<PtyStatusPayload>(`pty-status-${newSessionId}`, (event) => {
+        const status = event.payload.status as SessionStatus;
+        useTerminalStore.setState((state) => ({
+          sessionStatuses: { ...state.sessionStatuses, [newSessionId]: status },
+        }));
+      });
+
+      const restoredSession: TerminalSession = {
+        id: newSessionId,
+        projectId: ps.projectId,
+        title: ps.title,
+        cwd: ps.cwd,
+        shell: resolvedShell,
+        envVars: ps.envVars,
+        startupCmd: ps.startupCmd,
+      };
+
+      restoredSessions.push(restoredSession);
+      restoredStatuses[newSessionId] = "running";
+      restoredListeners[newSessionId] = unlisten;
+
+      // 执行启动命令
+      if (ps.startupCmd) {
+        setTimeout(() => {
+          invoke("pty_write", { sessionId: newSessionId, data: ps.startupCmd + "\r" }).catch((err) => {
+            logError("Failed to write startup command on restore", { sessionId: newSessionId, startupCmd: ps.startupCmd, err });
+          });
+        }, 500);
+      }
+    }
+
+    // 恢复分屏
+    for (const ps of persistedSplits) {
+      const oldPrimaryId = persistedSessions[ps.primarySessionIndex]?.id;
+      const newPrimaryId = newIdMap[oldPrimaryId];
+      if (!newPrimaryId) continue;
+
+      // 创建第二个终端
+      const normalizedShell = normalizeShellKey(ps.secondSessionShell);
+      const resolvedShell = normalizedShell ?? normalizeShellKey(useSettingsStore.getState().defaultShell) ?? null;
+
+      let secondSessionId: string;
+      try {
+        secondSessionId = await invoke<string>("pty_create", {
+          cwd: ps.secondSessionCwd ?? null,
+          envVars: null,
+          shell: resolvedShell,
+        });
+      } catch (err) {
+        logError("Failed to restore split session", { split: ps, err });
+        continue;
+      }
+
+      const unlisten = await listen<PtyStatusPayload>(`pty-status-${secondSessionId}`, (event) => {
+        const status = event.payload.status as SessionStatus;
+        useTerminalStore.setState((state) => ({
+          sessionStatuses: { ...state.sessionStatuses, [secondSessionId]: status },
+        }));
+      });
+
+      restoredSplits[newPrimaryId] = {
+        direction: ps.direction,
+        secondSessionId,
+        ratio: ps.ratio,
+      };
+      restoredStatuses[secondSessionId] = "running";
+      restoredListeners[secondSessionId] = unlisten;
+    }
+
+    // 确定恢复后的 activeSessionId
+    let newActiveId: string | null = null;
+    if (persistedActiveId && newIdMap[persistedActiveId]) {
+      newActiveId = newIdMap[persistedActiveId];
+    } else if (restoredSessions.length > 0) {
+      newActiveId = restoredSessions[restoredSessions.length - 1].id;
+    }
+
+    set({
+      sessions: restoredSessions,
+      activeSessionId: newActiveId,
+      sessionStatuses: restoredStatuses,
+      statusListeners: restoredListeners,
+      splits: restoredSplits,
+    });
+
+    // 更新 sessionStore 的持久化数据（使用新 ID）
+    const updatedPersistedSessions = restoredSessions.map((s) => ({
+      ...s,
+      id: s.id, // 已经是新 ID
+    }));
+    const updatedPersistedSplits = persistedSplits
+      .filter((ps) => {
+        const oldPrimaryId = persistedSessions[ps.primarySessionIndex]?.id;
+        return newIdMap[oldPrimaryId] && restoredSplits[newIdMap[oldPrimaryId]];
+      })
+      .map((ps) => {
+        const oldPrimaryId = persistedSessions[ps.primarySessionIndex]?.id;
+        const newPrimaryId = newIdMap[oldPrimaryId];
+        const newPrimaryIndex = restoredSessions.findIndex((s) => s.id === newPrimaryId);
+        return {
+          ...ps,
+          primarySessionIndex: newPrimaryIndex,
+        };
+      });
+
+    await sessionStore.saveSessions(updatedPersistedSessions);
+    await sessionStore.saveSplits(updatedPersistedSplits);
+    await sessionStore.saveActiveSessionId(newActiveId);
+
+    // 显示恢复结果提示
+      if (skippedSessions.length > 0) {
+        toast.info("部分终端会话未恢复", {
+          description: `以下会话因项目不存在或创建失败而跳过: ${skippedSessions.join(", ")}`,
+        });
+      }
+      if (restoredSessions.length > 0) {
+        toast.success(`已恢复 ${restoredSessions.length} 个终端会话`);
+      }
+    } finally {
+      restoreInProgress = false;
+    }
   },
 }));

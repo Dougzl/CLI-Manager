@@ -1,0 +1,79 @@
+import { create } from "zustand";
+import { Store } from "@tauri-apps/plugin-store";
+import type { TerminalSession, PersistedSplit } from "../lib/types";
+
+interface SessionStore {
+  sessions: TerminalSession[];
+  splits: PersistedSplit[];
+  activeSessionId: string | null;
+  loaded: boolean;
+
+  load: () => Promise<void>;
+  saveSessions: (sessions: TerminalSession[]) => Promise<void>;
+  saveSplits: (splits: PersistedSplit[]) => Promise<void>;
+  saveActiveSessionId: (id: string | null) => Promise<void>;
+  clear: () => Promise<void>;
+}
+
+let store: Store | null = null;
+async function getStore() {
+  if (!store) {
+    store = await Store.load("sessions.json", { autoSave: 100, defaults: {} });
+  }
+  return store;
+}
+
+export const useSessionStore = create<SessionStore>(() => ({
+  sessions: [],
+  splits: [],
+  activeSessionId: null,
+  loaded: false,
+
+  load: async () => {
+    const s = await getStore();
+    const sessions = (await s.get<TerminalSession[]>("sessions")) ?? [];
+    const splits = (await s.get<PersistedSplit[]>("splits")) ?? [];
+    const activeSessionId = await s.get<string>("activeSessionId");
+
+    useSessionStore.setState({
+      sessions,
+      splits,
+      activeSessionId: activeSessionId ?? null,
+      loaded: true,
+    });
+  },
+
+  saveSessions: async (sessions) => {
+    const s = await getStore();
+    await s.set("sessions", sessions);
+    useSessionStore.setState({ sessions });
+  },
+
+  saveSplits: async (splits) => {
+    const s = await getStore();
+    await s.set("splits", splits);
+    useSessionStore.setState({ splits });
+  },
+
+  saveActiveSessionId: async (id) => {
+    const s = await getStore();
+    if (id === null) {
+      await s.set("activeSessionId", null);
+    } else {
+      await s.set("activeSessionId", id);
+    }
+    useSessionStore.setState({ activeSessionId: id });
+  },
+
+  clear: async () => {
+    const s = await getStore();
+    await s.set("sessions", []);
+    await s.set("splits", []);
+    await s.set("activeSessionId", null);
+    useSessionStore.setState({
+      sessions: [],
+      splits: [],
+      activeSessionId: null,
+    });
+  },
+}));

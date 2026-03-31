@@ -2,6 +2,8 @@
 
 mod commands;
 mod pty;
+mod webdav;
+mod sync;
 
 use log::LevelFilter;
 use tauri_plugin_sql::{Builder as SqlBuilder, Migration, MigrationKind};
@@ -113,6 +115,19 @@ fn migrations() -> Vec<Migration> {
             ",
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 7,
+            description: "create_sync_meta_table",
+            sql: "
+                CREATE TABLE IF NOT EXISTS sync_meta (
+                    id TEXT PRIMARY KEY DEFAULT 'singleton',
+                    device_id TEXT NOT NULL,
+                    last_sync_at TEXT,
+                    remote_version TEXT
+                );
+            ",
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
@@ -178,6 +193,9 @@ pub fn run() {
             commands::history::history_search,
             commands::history::history_list_prompts,
             commands::history::history_get_stats,
+            commands::sync::sync_test_connection,
+            commands::sync::sync_upload,
+            commands::sync::sync_download,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

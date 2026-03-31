@@ -1,5 +1,6 @@
 import { ThemeToggle } from "../ThemeToggle";
 import { BarChart3, Settings, Terminal } from "../icons";
+import { SyncStatusIndicator } from "./SyncStatusIndicator";
 
 interface SidebarFooterProps {
   collapsed: boolean;
@@ -49,6 +50,7 @@ export function SidebarFooter({
           >
             <Terminal size={14} strokeWidth={1.5} />
           </button>
+          <SyncStatusIndicator collapsed onOpenSettings={onOpenSettings} />
         </div>
       </div>
     );
@@ -90,6 +92,9 @@ export function SidebarFooter({
         >
           <span className="switch-thumb" />
         </button>
+      </div>
+      <div className="mt-2">
+        <SyncStatusIndicator onOpenSettings={onOpenSettings} />
       </div>
     </div>
   );

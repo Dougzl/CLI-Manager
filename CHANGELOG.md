@@ -1,5 +1,25 @@
 # Changelog
 
+## [V0.0.7] - 2026-03-31
+
+### WebDAV 云同步
+
+- 新增 `src-tauri/src/webdav/` 目录：WebDAV 客户端实现，支持 CONNECT/GET/PUT/DELETE 请求。
+- 新增 `src-tauri/src/sync/` 目录：同步数据打包、解包、冲突检测逻辑。
+- 新增 `src-tauri/src/commands/sync.rs`：`sync_test_connection` / `sync_upload` / `sync_download` Tauri commands。
+- 新增 `src/stores/syncStore.ts`：同步状态管理，支持 WebDAV 配置、上传/下载、冲突解决。
+- 新增 `src/components/settings/pages/SyncSettingsPage.tsx`：WebDAV 配置页面，支持 URL、用户名、密码输入与连接测试。
+- 新增 `src/components/sidebar/SyncStatusIndicator.tsx`：侧栏底部同步状态指示器，显示同步状态、上次同步时间、上传/下载按钮。
+- SQLite migration v7：新增 `sync_meta` 表，存储设备 ID 与最后同步时间。
+- 同步范围：项目、分组、命令模板；支持冲突检测与本地/远程优先解决策略。
+
+### 终端会话恢复
+
+- 新增 `src/stores/sessionStore.ts`：使用 `tauri-plugin-store` 持久化终端会话元数据到 `sessions.json`。
+- 修改 `src/lib/types.ts`：`TerminalSession` 扩展 `cwd`/`shell`/`envVars`/`startupCmd` 字段；新增 `PersistedSplit` 类型。
+- 修改 `src/stores/terminalStore.ts`：新增 `restoreSessions` 方法，刷新后重建 PTY 并恢复分屏布局；应用关闭时清除持久化数据。
+- 修改 `src/App.tsx`：初始化流程加载 `sessionStore` 与 `syncStore`，调用 `restoreSessions` 恢复终端。
+
 ## [V0.0.6] - 2026-03-26
 
 ### UI Refactor

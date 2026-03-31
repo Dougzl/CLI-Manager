@@ -13,6 +13,7 @@ export interface TreeActions {
   onSelectProjectByKeyboard: (p: Project) => void;
   onOpenProject: (p: Project) => void;
   onEditProject: (p: Project) => void;
+  onCloneProject: (p: Project) => void;
   onDeleteProject: (p: Project) => void;
   onAddSubGroup: (parentId: string) => void;
   onAddProjectToGroup: (groupId: string) => void;

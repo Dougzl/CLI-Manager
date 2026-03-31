@@ -5,7 +5,7 @@ import { CSS } from "@dnd-kit/utilities";
 import type { TreeNode as TNode } from "../../lib/types";
 import type { SessionStatus } from "../../stores/terminalStore";
 import { useTreeActions } from "./TreeContext";
-import { Folder, FolderPlus, Terminal, Pencil, Trash2, Play, ChevronRight, Plus, AlertTriangle } from "../icons";
+import { Folder, FolderPlus, Terminal, Pencil, Trash2, Play, ChevronRight, Plus, AlertTriangle, Copy } from "../icons";
 
 const STATUS_COLORS: Record<SessionStatus, string> = {
   running: "#9ece6a",
@@ -125,6 +125,9 @@ export function TreeNodeItem({ node, depth, density, focusedNodeKey, onFocusNode
           <span className="hidden group-hover/item:flex items-center gap-0.5 shrink-0">
             <button onClick={(e) => { e.stopPropagation(); actions.onOpenProject(p); }} className="icon-btn" style={{ color: "var(--success)", opacity: 0.7 }} title="Open terminal">
               <Play size={14} strokeWidth={1.5} />
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); actions.onCloneProject(p); }} className="icon-btn" style={{ color: "var(--text-muted)", opacity: 0.7 }} title="Clone">
+              <Copy size={14} strokeWidth={1.5} />
             </button>
             <button onClick={(e) => { e.stopPropagation(); actions.onEditProject(p); }} className="icon-btn" style={{ color: "var(--text-muted)", opacity: 0.7 }} title="Edit">
               <Pencil size={14} strokeWidth={1.5} />

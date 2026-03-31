@@ -57,6 +57,19 @@ export interface TerminalSession {
   id: string;
   projectId?: string;
   title: string;
+  // 重建 PTY 必需参数
+  cwd?: string;
+  shell?: string | null;
+  envVars?: Record<string, string>;
+  startupCmd?: string;
+}
+
+export interface PersistedSplit {
+  primarySessionIndex: number;
+  direction: "horizontal" | "vertical";
+  secondSessionCwd?: string;
+  secondSessionShell?: string | null;
+  ratio: number;
 }
 
 export interface CommandTemplate {

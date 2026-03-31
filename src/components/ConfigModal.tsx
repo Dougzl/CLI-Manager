@@ -13,25 +13,29 @@ import { useFocusTrap } from "../hooks/useFocusTrap";
 
 interface Props {
   project?: Project;
+  cloneFrom?: Project;
   defaultGroupId?: string | null;
   onClose: () => void;
 }
 
 const inputClass = "w-full rounded border border-border bg-bg-tertiary px-2 py-1.5 text-sm text-text-primary outline-none";
 
-export function ConfigModal({ project, defaultGroupId, onClose }: Props) {
+export function ConfigModal({ project, cloneFrom, defaultGroupId, onClose }: Props) {
   const { createProject, updateProject, groups } = useProjectStore();
   const isEdit = !!project;
+  const isClone = !!cloneFrom;
 
-  const [name, setName] = useState(project?.name ?? "");
-  const [path, setPath] = useState(project?.path ?? "");
-  const [groupId, setGroupId] = useState<string | null>(
-    project?.group_id ?? defaultGroupId ?? null
+  const [name, setName] = useState(
+    cloneFrom ? `${cloneFrom.name} (副本)` : (project?.name ?? "")
   );
-  const [cliTool, setCliTool] = useState(project?.cli_tool ?? "");
-  const [startupCmd, setStartupCmd] = useState(project?.startup_cmd ?? "");
-  const [shell, setShell] = useState(project?.shell ?? "powershell");
-  const [envVarsText, setEnvVarsText] = useState(project?.env_vars ?? "{}");
+  const [path, setPath] = useState(cloneFrom?.path ?? project?.path ?? "");
+  const [groupId, setGroupId] = useState<string | null>(
+    cloneFrom?.group_id ?? project?.group_id ?? defaultGroupId ?? null
+  );
+  const [cliTool, setCliTool] = useState(cloneFrom?.cli_tool ?? project?.cli_tool ?? "");
+  const [startupCmd, setStartupCmd] = useState(cloneFrom?.startup_cmd ?? project?.startup_cmd ?? "");
+  const [shell, setShell] = useState(cloneFrom?.shell ?? project?.shell ?? "powershell");
+  const [envVarsText, setEnvVarsText] = useState(cloneFrom?.env_vars ?? project?.env_vars ?? "{}");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showConfirmEdit, setShowConfirmEdit] = useState(false);
@@ -175,7 +179,7 @@ export function ConfigModal({ project, defaultGroupId, onClose }: Props) {
         aria-modal="true"
       >
         <h2 className="mb-4 text-base font-semibold text-text-primary">
-          {isEdit ? "编辑终端" : "新增终端"}
+          {isEdit ? "编辑终端" : isClone ? "复制终端配置" : "新增终端"}
         </h2>
 
         {error && (
@@ -258,7 +262,7 @@ export function ConfigModal({ project, defaultGroupId, onClose }: Props) {
             disabled={submitting}
             className="rounded bg-accent px-3 py-1.5 text-sm text-white disabled:opacity-50"
           >
-            {submitting ? "保存中..." : isEdit ? "保存" : "新增"}
+            {submitting ? "保存中..." : isEdit ? "保存" : isClone ? "创建副本" : "新增"}
           </button>
         </div>
       </form>
