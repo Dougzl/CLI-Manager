@@ -5,6 +5,8 @@ use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter};
 use log::{debug, error, info};
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
 
 pub struct PtySession {
     writer: Box<dyn Write + Send>,
@@ -121,8 +123,9 @@ impl PtyManager {
                 match reader.read(&mut buf) {
                     Ok(0) => break,
                     Ok(n) => {
-                        let data = String::from_utf8_lossy(&buf[..n]).to_string();
-                        let _ = app_handle.emit(&output_event, data);
+                        // Base64 encode raw bytes to preserve all control characters (including ESC)
+                        let encoded = STANDARD.encode(&buf[..n]);
+                        let _ = app_handle.emit(&output_event, encoded);
                     }
                     Err(_) => break,
                 }

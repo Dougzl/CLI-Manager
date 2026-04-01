@@ -78,7 +78,7 @@ export function SessionDetailPane({
 
   return (
     <>
-      <div className="min-h-0 shrink-0 overflow-y-auto border-b border-border p-3">
+      <div className="[grid-row:1] min-h-0 shrink-0 overflow-y-auto border-b border-border p-3">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
             <h3 className="truncate text-sm font-semibold text-text-primary">{activeView.displayTitle}</h3>
@@ -124,7 +124,7 @@ export function SessionDetailPane({
         />
       </div>
 
-      <div ref={messageListRef} onScroll={onMessageListScroll} className="min-h-0 space-y-2 overflow-x-hidden overflow-y-auto p-3">
+      <div ref={messageListRef} onScroll={onMessageListScroll} className="[grid-row:2] min-h-0 h-full overflow-x-hidden overflow-y-auto p-3 space-y-2">
         {loadingSessionDetail && <div className="text-xs text-text-muted">正在读取会话详情...</div>}
 
         {!loadingSessionDetail && activeSession?.messages.length === 0 && (

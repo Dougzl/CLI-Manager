@@ -171,10 +171,14 @@ export function XTermTerminal({ sessionId, isActive = true, fontSize = 14, fontF
       });
     });
 
-    // Listen for PTY output
+    // Listen for PTY output (Base64 encoded to preserve control characters)
     let unlisten: UnlistenFn | null = null;
     listen<string>(`pty-output-${sessionId}`, (event) => {
-      terminal.write(event.payload);
+      // Decode Base64 to Uint8Array, then decode UTF-8 for xterm.js
+      const binaryString = atob(event.payload);
+      const bytes = Uint8Array.from(binaryString, (c) => c.charCodeAt(0));
+      const text = new TextDecoder("utf-8").decode(bytes);
+      terminal.write(text);
     }).then((fn) => {
       unlisten = fn;
     });
