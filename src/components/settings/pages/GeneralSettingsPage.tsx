@@ -8,6 +8,7 @@ import {
 } from "../../../stores/settingsStore";
 import { SHELL_OPTIONS } from "../../../lib/types";
 import { normalizeShellKey } from "../../../lib/shell";
+import { AboutSection } from "../AboutSection";
 
 const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
   { value: "light", label: "浅色" },
@@ -334,6 +335,8 @@ export function GeneralSettingsPage() {
           </div>
         </div>
       </section>
+
+      <AboutSection />
     </div>
   );
 }

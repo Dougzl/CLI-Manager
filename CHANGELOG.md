@@ -1,5 +1,16 @@
 # Changelog
 
+## [V0.0.8] - 2026-04-02
+
+### 版本号显示与更新检测
+
+- 新增 `src-tauri/src/commands/version.rs`：`get_app_version` command，返回应用版本号与名称。
+- 新增 `src/stores/updateStore.ts`：更新状态管理，支持检查更新、状态流转、错误处理。
+- 新增 `src/components/settings/AboutSection.tsx`：设置页面「关于」区块，显示当前版本号与检查更新按钮。
+- 修改 `src/components/settings/pages/GeneralSettingsPage.tsx`：底部集成 AboutSection 组件。
+- 更新检测通过 GitHub API（`dark-hxx/CLI-Manager` 仓库）获取最新 Release，支持版本比较与 Release Notes 展示。
+- 有新版本时显示版本卡片，点击「下载更新」通过 `tauri-plugin-opener` 打开浏览器。
+
 ## [V0.0.7] - 2026-03-31
 
 ### WebDAV 云同步

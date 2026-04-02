@@ -196,6 +196,7 @@ pub fn run() {
             commands::sync::sync_test_connection,
             commands::sync::sync_upload,
             commands::sync::sync_download,
+            commands::version::get_app_version,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
