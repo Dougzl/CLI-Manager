@@ -26,6 +26,7 @@ dist-ssr
 # Local tooling
 .ace-tool/
 .claude/
+.worktrees/
 
 # Tauri
 src-tauri/target/
