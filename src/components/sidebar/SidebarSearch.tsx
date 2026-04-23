@@ -51,7 +51,7 @@ export function SidebarSearch({
   }
 
   return (
-    <div className={compact ? "px-2.5 py-1.5" : "px-3 py-2"}>
+    <div className={compact ? "px-2.5 py-1.5" : "px-2.5 py-2"}>
       <div className={`mb-2 flex flex-wrap items-center ${compact ? "gap-1.5" : "gap-2"}`}>
         <button
           onClick={onStartFiltered}
@@ -87,7 +87,7 @@ export function SidebarSearch({
           </button>
         )}
       </div>
-      <div className={`flex items-center rounded-xl bg-surface-container-highest ${compact ? "gap-1.5 px-2 py-1.5" : "gap-2 px-2.5 py-1.5"}`}>
+      <div className={`ui-sidebar-search-shell ${compact ? "gap-1.5 px-2 py-1.5" : "gap-2 px-2.5 py-1.5"}`}>
         <span className="text-on-surface-variant">
           <Search size={14} strokeWidth={1.5} />
         </span>

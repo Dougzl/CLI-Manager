@@ -155,11 +155,9 @@ export function TerminalTabs() {
   } as CSSProperties;
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      {/* Tab bar */}
-      <div className="ui-terminal-chrome flex h-10 items-center">
-        {/* Scrollable tabs area */}
-        <div className="flex-1 flex items-center h-full overflow-x-auto min-w-0">
+    <div className="ui-terminal-tabs-shell flex h-full min-h-0 flex-col">
+      <div className="ui-terminal-chrome">
+        <div className="ui-terminal-tab-scroll flex h-full min-w-0 flex-1 items-center overflow-x-auto px-1.5">
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={sessionIds} strategy={horizontalListSortingStrategy}>
               {sessions.map((s) => (
@@ -177,8 +175,7 @@ export function TerminalTabs() {
             </SortableContext>
           </DndContext>
         </div>
-        {/* Action buttons — outside scroll container so dropdowns are not clipped */}
-        <div className="flex shrink-0 items-center gap-2 px-2.5">
+        <div className="ui-terminal-actions flex h-full shrink-0 items-center gap-2 px-2.5">
           <button
             onClick={handleNewTab}
             className="ui-flat-action ui-toolbar-button ui-primary-action"
@@ -267,8 +264,7 @@ export function TerminalTabs() {
         </Portal>
       )}
 
-      {/* Terminal panel */}
-      <div className="flex-1 min-h-0 overflow-hidden px-3 pb-3">
+      <div className="flex-1 min-h-0 overflow-hidden px-3 pb-3 pt-3">
         {historyOpen ? (
           <div className="ui-surface-card h-full min-h-0 overflow-hidden">
             <HistoryWorkspace />

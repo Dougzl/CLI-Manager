@@ -1,4 +1,5 @@
-﻿import { RefreshCw, Search, Star } from "lucide-react";
+﻿import { Select } from "@/components/ui/select";
+import { RefreshCw, Search, Star } from "lucide-react";
 import type { MouseEvent as ReactMouseEvent, RefObject } from "react";
 import type { HistorySearchHit, HistorySessionView, HistorySourceFilter } from "../../lib/types";
 import { SearchHitsPanel } from "./SearchHitsPanel";
@@ -65,17 +66,21 @@ export function HistoryListPane({
   return (
     <aside
       ref={sidebarRef}
-      className="relative flex min-h-0 min-w-[220px] max-w-[70%] flex-col border-r border-border bg-bg-secondary"
+      className="ui-history-sidebar relative flex min-h-0 min-w-[220px] max-w-[70%] flex-col"
       style={{ width: historySidebarWidth }}
     >
-      <div className="border-b border-border p-3">
+      <div className="ui-history-sidebar-top p-3">
         <div className="flex flex-wrap items-center gap-2">
-          <button onClick={onClose} aria-label="关闭历史会话面板" className="ui-btn shrink-0">
+          <button
+            onClick={onClose}
+            aria-label="关闭历史会话面板"
+            className="ui-flat-action ui-toolbar-button ui-toolbar-button-compact shrink-0"
+          >
             关闭
           </button>
 
-          <select
-            className="ui-input shrink-0 px-2 py-1 text-[12px]"
+          <Select
+            className="h-8 shrink-0 text-[12px]"
             value={sourceFilter}
             onChange={(e) => onSourceFilterChange(e.target.value as HistorySourceFilter)}
             aria-label="历史来源过滤"
@@ -83,12 +88,12 @@ export function HistoryListPane({
             <option value="all">全部来源</option>
             <option value="claude">Claude</option>
             <option value="codex">Codex</option>
-          </select>
+          </Select>
 
           <button
             onClick={onRefresh}
             aria-label="刷新历史会话列表"
-            className="ui-btn shrink-0"
+            className="ui-flat-action ui-toolbar-button ui-toolbar-button-compact shrink-0"
             title="刷新会话列表"
           >
             <RefreshCw size={12} />
@@ -96,7 +101,7 @@ export function HistoryListPane({
           </button>
         </div>
 
-        <div className="ui-input mt-2 flex items-center gap-2 px-2 py-1 text-text-secondary">
+        <div className="ui-history-search-shell mt-2 gap-2 px-2.5 py-1.5 text-text-secondary">
           <Search size={13} />
           <input
             ref={globalSearchRef}
@@ -125,7 +130,7 @@ export function HistoryListPane({
         {!loadingSessions &&
           groupedSessions.map((group) => (
             <div key={group.label}>
-              <div className="ui-dev-label border-y border-border bg-bg-tertiary px-3 py-1.5 text-[11px] font-semibold tracking-[0.04em] text-text-muted">
+              <div className="ui-history-section-label ui-dev-label px-3 py-1.5 text-[11px] font-semibold tracking-[0.04em] text-text-muted">
                 {group.label}
               </div>
               {group.items.map((item) => (
@@ -163,8 +168,8 @@ export function HistoryListPane({
 
       <div
         onMouseDown={onStartResize}
-        className="absolute bottom-0 right-0 top-0 z-10 w-1 cursor-col-resize transition-colors hover:bg-[var(--accent)]"
-        style={{ opacity: 0.35 }}
+        className="ui-history-resize-handle absolute bottom-0 right-0 top-0 z-10 w-1.5 cursor-col-resize transition-colors"
+        style={{ opacity: 0.6 }}
       />
     </aside>
   );

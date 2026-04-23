@@ -38,7 +38,7 @@ function InlineRename({ initial, onConfirm, onCancel }: { initial: string; onCon
         if (e.key === "Enter") submit();
         if (e.key === "Escape") onCancel();
       }}
-      className="ui-focus-ring flex-1 rounded-md bg-surface-container-highest px-1.5 py-1 text-xs text-on-surface outline-none"
+      className="ui-tree-inline-input ui-focus-ring h-8 flex-1 px-2 text-xs text-on-surface outline-none"
       onClick={(e) => e.stopPropagation()}
     />
   );
@@ -93,7 +93,7 @@ export function TreeNodeItem({ node, depth, density, focusedNodeKey, onFocusNode
       >
         <div
           className={`ui-tree-node ui-tree-project ui-focus-ring flex items-center rounded-xl cursor-pointer group/item ${
-            compact ? "gap-2 py-1.5 text-[12px]" : "gap-2.5 py-2 text-[13px]"
+            compact ? "gap-1.5 py-1 text-[12px]" : "gap-2 py-1.5 text-[13px]"
           }`}
           data-selected={isSelected || isMultiSelected ? "true" : "false"}
           data-status={status ?? "idle"}
@@ -153,13 +153,11 @@ export function TreeNodeItem({ node, depth, density, focusedNodeKey, onFocusNode
     );
   }
 
-  // Group node
   const g = node.group;
   const treeKey = `g:${g.id}`;
   const isOpen = !actions.collapsedIds.has(g.id);
   const childCount = countDescendants(node);
 
-  // Renaming mode
   if (actions.renamingGroupId === g.id) {
     return (
       <div
@@ -198,7 +196,7 @@ export function TreeNodeItem({ node, depth, density, focusedNodeKey, onFocusNode
       <div className={`ui-tree-group-shell ${compact ? "my-0.5" : "my-1"}`} style={{ marginLeft: depth === 0 ? 0 : 2 }}>
         <div
           className={`ui-tree-node ui-tree-group ui-focus-ring flex items-center rounded-xl font-semibold cursor-pointer group/grp ${
-            compact ? "gap-1.5 py-1.5 text-[11px]" : "gap-2 py-2 text-[12px]"
+            compact ? "gap-1.5 py-1 text-[11px]" : "gap-2 py-1.5 text-[12px]"
           }`}
           data-selected="false"
           data-open={isOpen ? "true" : "false"}
@@ -224,7 +222,7 @@ export function TreeNodeItem({ node, depth, density, focusedNodeKey, onFocusNode
 
         {actions.newGroupParentId === g.id && (
           <div
-            className={`flex items-center ${compact ? "gap-1.5 py-1.5" : "gap-2 py-2"}`}
+            className={`flex items-center ${compact ? "gap-1.5 py-1" : "gap-2 py-1.5"}`}
             style={{ paddingLeft: paddingLeft + indentStep, paddingRight: compact ? 8 : 10 }}
           >
             <span className="ui-tree-leading-icon"><Folder size={16} strokeWidth={1.5} /></span>
@@ -237,7 +235,7 @@ export function TreeNodeItem({ node, depth, density, focusedNodeKey, onFocusNode
             <div className="tree-collapse-inner" role="group">
               <DndContext sensors={[]} collisionDetection={closestCenter} onDragEnd={(event: DragEndEvent) => actions.onDragEnd(g.id, event)}>
                 <SortableContext items={node.children.map((c) => c.type === "group" ? c.group.id : c.project.id)} strategy={verticalListSortingStrategy}>
-                  <div className={`${compact ? "ml-2 space-y-0.5 pb-1" : "ml-2.5 space-y-0.5 pb-1.5"}`}>
+                  <div className={`${compact ? "ml-2 space-y-0.5 pb-0.5" : "ml-2.5 space-y-0.5 pb-1"}`}>
                     {node.children.map((child) => (
                       <TreeNodeItem
                         key={child.type === "group" ? `g:${child.group.id}` : `p:${child.project.id}`}

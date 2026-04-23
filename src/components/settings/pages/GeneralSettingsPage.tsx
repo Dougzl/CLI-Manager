@@ -1,4 +1,7 @@
 import { useMemo } from "react";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import {
   useSettingsStore,
   type DarkThemePalette,
@@ -168,8 +171,9 @@ export function GeneralSettingsPage() {
   return (
     <div className="space-y-4">
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <div className="ui-surface-card rounded-2xl border border-border p-4">
+        <Card className="p-4">
           <div className="text-sm font-semibold text-on-surface">外观</div>
+
           <div className="mt-3">
             <label className="mb-1 block text-xs text-on-surface-variant">应用主题</label>
             <div className="grid grid-cols-3 gap-2">
@@ -221,9 +225,9 @@ export function GeneralSettingsPage() {
               ))}
             </div>
           </div>
-        </div>
+        </Card>
 
-        <div className="ui-surface-card rounded-2xl border border-border p-4">
+        <Card className="p-4">
           <div className="text-sm font-semibold text-on-surface">终端与侧栏</div>
           <div className="mt-3 space-y-3">
             <div>
@@ -239,13 +243,13 @@ export function GeneralSettingsPage() {
                   className="w-full accent-accent"
                   aria-label="终端字体大小滑杆"
                 />
-                <input
+                <Input
                   type="number"
                   min={10}
                   max={24}
                   value={fontSize}
                   onChange={(e) => update("fontSize", Math.min(24, Math.max(10, Number(e.target.value))))}
-                  className="ui-focus-ring w-16 rounded-lg border border-border bg-surface-container-high px-2 py-1 text-xs text-on-surface outline-none"
+                  className="w-16 text-xs"
                 />
               </div>
               <div className="mt-1 text-[11px] text-text-muted">仅影响内置终端，不改变应用界面字体。</div>
@@ -253,10 +257,9 @@ export function GeneralSettingsPage() {
 
             <div>
               <label className="mb-1 block text-xs text-on-surface-variant">终端字体族</label>
-              <select
+              <Select
                 value={fontFamily}
                 onChange={(e) => update("fontFamily", e.target.value)}
-                className="ui-focus-ring w-full rounded-lg border border-border bg-surface-container-high px-2 py-1.5 text-xs text-on-surface outline-none"
                 aria-label="终端字体族"
               >
                 {isCustomFontFamily && <option value={fontFamily}>当前自定义（保留）</option>}
@@ -265,15 +268,14 @@ export function GeneralSettingsPage() {
                     {option.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             <div>
               <label className="mb-1 block text-xs text-on-surface-variant">默认 Shell</label>
-              <select
+              <Select
                 value={shellSelectValue}
                 onChange={(e) => update("defaultShell", e.target.value)}
-                className="ui-focus-ring w-full rounded-lg border border-border bg-surface-container-high px-2 py-1.5 text-xs text-on-surface outline-none"
                 aria-label="默认 Shell"
               >
                 {isCustomShellValue && <option value={defaultShell}>当前自定义（保留）</option>}
@@ -282,7 +284,7 @@ export function GeneralSettingsPage() {
                     {opt.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             <div>
@@ -332,21 +334,23 @@ export function GeneralSettingsPage() {
               </button>
             </div>
           </div>
-        </div>
+        </Card>
       </section>
 
-      <section className="ui-surface-card rounded-2xl border border-border p-4">
-        <div className="mb-2 text-sm font-semibold text-on-surface">终端实时预览</div>
-        <div
-          className="rounded-xl border border-border p-4 font-mono"
-          style={{ backgroundColor: "var(--surface-container-lowest)", color: "var(--on-surface)" }}
-        >
-          <div style={{ fontFamily, fontSize: `${fontSize}px` }}>
-            <div>$ cli-manager --doctor</div>
-            <div className="opacity-80">Environment ready. Launching workspace...</div>
-            <div className="mt-1 text-success">✓ Terminal initialized</div>
+      <section>
+        <Card className="p-4">
+          <div className="mb-2 text-sm font-semibold text-on-surface">终端实时预览</div>
+          <div
+            className="rounded-xl border border-border p-4 font-mono"
+            style={{ backgroundColor: "var(--surface-container-lowest)", color: "var(--on-surface)" }}
+          >
+            <div style={{ fontFamily, fontSize: `${fontSize}px` }}>
+              <div>$ cli-manager --doctor</div>
+              <div className="opacity-80">Environment ready. Launching workspace...</div>
+              <div className="mt-1 text-success">✓ Terminal initialized</div>
+            </div>
           </div>
-        </div>
+        </Card>
       </section>
 
       <AboutSection />
