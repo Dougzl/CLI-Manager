@@ -78,8 +78,8 @@ const DARK_PALETTE_OPTIONS: {
   {
     value: "investment-platform",
     label: "Investment Platform",
-    description: "深海军蓝与琥珀金，克制的专业金融终端气质",
-    swatches: ["#0f172a", "#f8fafc", "#f59e0b"],
+    description: "深海军蓝，克制的专业金融终端气质",
+    swatches: ["#0f172a", "#f8fafc", "#14b8a6"],
   },
 ];
 
