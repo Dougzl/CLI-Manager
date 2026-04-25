@@ -1644,4 +1644,37 @@ samp,
   background-color: color-mix(in srgb, var(--surface-container-low) 78%, transparent);
 }
 
+/* Hide all scrollbars globally while preserving scroll behavior */
+* {
+  -ms-overflow-style: none;
+  scrollbar-width: none !important;
+}
+
+*::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+
+.diff-code-scroll,
+.ui-terminal-tab-scroll,
+[class*="overflow-y-auto"],
+[class*="overflow-auto"] {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+  scrollbar-color: transparent transparent !important;
+}
+
+.diff-code-scroll::-webkit-scrollbar,
+.diff-code-scroll::-webkit-scrollbar-track,
+.diff-code-scroll::-webkit-scrollbar-thumb,
+.ui-terminal-tab-scroll::-webkit-scrollbar,
+[class*="overflow-y-auto"]::-webkit-scrollbar,
+[class*="overflow-auto"]::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+  background: transparent !important;
+}
+
 

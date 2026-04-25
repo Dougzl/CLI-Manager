@@ -15,11 +15,15 @@ export interface Project {
   sort_order: number;
   cli_tool: string;
   startup_cmd: string;
+  startup_mode: ProjectStartupMode;
+  cron_expression: string;
   env_vars: string;
   shell: string;
   created_at: string;
   updated_at: string;
 }
+
+export type ProjectStartupMode = "manual" | "app-launch" | "cron";
 
 export interface CreateProjectInput {
   name: string;
@@ -28,6 +32,8 @@ export interface CreateProjectInput {
   group_name?: string;
   cli_tool?: string;
   startup_cmd?: string;
+  startup_mode?: ProjectStartupMode;
+  cron_expression?: string;
   env_vars?: string;
   shell?: string;
 }
@@ -40,6 +46,8 @@ export interface UpdateProjectInput {
   sort_order?: number;
   cli_tool?: string;
   startup_cmd?: string;
+  startup_mode?: ProjectStartupMode;
+  cron_expression?: string;
   env_vars?: string;
   shell?: string;
 }

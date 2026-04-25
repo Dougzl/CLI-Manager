@@ -2,7 +2,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast, Toaster } from "sonner";
 import { isTauri } from "@tauri-apps/api/core";
 import { LogicalSize } from "@tauri-apps/api/dpi";
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import {
+  disable as disableAutostart,
+  enable as enableAutostart,
+  isEnabled as isAutostartEnabled,
+} from "@tauri-apps/plugin-autostart";
+import {
+  register as registerGlobalShortcut,
+  unregister as unregisterGlobalShortcut,
+} from "@tauri-apps/plugin-global-shortcut";
 import { Sidebar } from "./components/sidebar";
 import { TerminalTabs } from "./components/TerminalTabs";
 import { CommandPalette } from "./components/CommandPalette";
@@ -16,6 +26,21 @@ import { useSyncStore } from "./stores/syncStore";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useHistoryStore } from "./stores/historyStore";
 import { createPerfMarker, logWarn } from "./lib/logger";
+import {
+  getProjectShell,
+  getProjectStartupCommand,
+  getProjectTitle,
+  parseProjectEnvVars,
+} from "./lib/projectLaunch";
+import {
+  getNextCronRunAt,
+  getProjectsForAppLaunch,
+  getProjectsForCron,
+  validateCronExpression,
+} from "./lib/projectScheduler";
+import { toTauriShortcut } from "./lib/shortcut";
+import { hideMainWindowToTray, toggleMainWindowVisibility } from "./lib/windowVisibility";
+import type { Project } from "./lib/types";
 import "./App.css";
 
 const appStartAt =
@@ -37,30 +62,67 @@ function App() {
   const openHistoryWorkspace = useHistoryStore((s) => s.openHistory);
   const openHistorySession = useHistoryStore((s) => s.openSession);
   const viewMode = useSettingsStore((s) => s.viewMode);
+  const settingsLoaded = useSettingsStore((s) => s.loaded);
+  const launchAtStartup = useSettingsStore((s) => s.launchAtStartup);
+  const minimizeToTray = useSettingsStore((s) => s.minimizeToTray);
+  const toggleMainWindowShortcut = useSettingsStore((s) => s.keyboardShortcuts.toggleMainWindow);
+  const projects = useProjectStore((s) => s.projects);
+
   const [statsOpen, setStatsOpen] = useState(false);
+  const [bootstrapped, setBootstrapped] = useState(false);
   const restoreWindowWidthRef = useRef<number | null>(null);
+  const allowWindowCloseRef = useRef(false);
+  const appLaunchHandledRef = useRef(false);
 
   useKeyboardShortcuts();
 
+  const launchProjectSession = useCallback(async (project: Project, reason: "app-launch" | "cron") => {
+    const { sessions, sessionStatuses, createSession } = useTerminalStore.getState();
+
+    if (reason === "app-launch") {
+      const alreadyRunning = sessions.some(
+        (session) =>
+          session.projectId === project.id && (sessionStatuses[session.id] ?? "running") === "running"
+      );
+      if (alreadyRunning) {
+        return false;
+      }
+    }
+
+    await createSession(
+      project.id,
+      project.path,
+      getProjectTitle(project),
+      getProjectStartupCommand(project),
+      parseProjectEnvVars(project),
+      getProjectShell(project)
+    );
+
+    if (reason === "cron") {
+      toast.success(`已按定时计划启动：${project.name}`);
+    }
+
+    return true;
+  }, []);
+
+  const requestAppExit = useCallback(async () => {
+    allowWindowCloseRef.current = true;
+    await getCurrentWindow().close();
+  }, []);
+
   useEffect(() => {
     const init = async () => {
-      // 1. 加载设置
       await loadSettings();
-
-      // 2. 加载同步配置
       await useSyncStore.getState().load();
-
-      // 3. 加载会话持久化数据
       await useSessionStore.getState().load();
-
-      // 4. 加载项目列表
       await useProjectStore.getState().fetchAll();
 
-      // 5. 恢复终端会话
       const { projects, projectHealth } = useProjectStore.getState();
       const projectMap = new Map(projects.map((p) => [p.id, p]));
       await useTerminalStore.getState().restoreSessions(projectMap, projectHealth);
+      setBootstrapped(true);
     };
+
     init().catch((err) => {
       toast.error("初始化失败", { description: String(err) });
     });
@@ -72,23 +134,143 @@ function App() {
     document.documentElement.setAttribute("data-dark-palette", darkThemePalette);
   }, [resolvedTheme, lightThemePalette, darkThemePalette]);
 
-  // 应用关闭时清除会话持久化数据（不恢复主动关闭时的终端）
   useEffect(() => {
+    if (!IN_TAURI) return;
     const appWindow = getCurrentWindow();
     let unlistenPromise: Promise<() => void> | null = null;
 
-    unlistenPromise = appWindow.onCloseRequested(async () => {
+    unlistenPromise = appWindow.onCloseRequested(async (event) => {
+      if (allowWindowCloseRef.current) {
+        await useSessionStore.getState().clear();
+        return;
+      }
+
+      if (minimizeToTray) {
+        event.preventDefault();
+        await hideMainWindowToTray();
+        return;
+      }
+
       await useSessionStore.getState().clear();
     });
 
     return () => {
       unlistenPromise?.then((fn) => fn()).catch(() => {});
     };
-  }, []);
+  }, [minimizeToTray]);
+
+  useEffect(() => {
+    if (!IN_TAURI || !settingsLoaded) return;
+
+    void (async () => {
+      try {
+        const enabled = await isAutostartEnabled();
+        if (launchAtStartup && !enabled) {
+          await enableAutostart();
+        } else if (!launchAtStartup && enabled) {
+          await disableAutostart();
+        }
+      } catch (err) {
+        logWarn("Failed to sync autostart setting", err);
+      }
+    })();
+  }, [launchAtStartup, settingsLoaded]);
+
+  useEffect(() => {
+    if (!IN_TAURI || !settingsLoaded) return;
+
+    const tauriShortcut = toTauriShortcut(toggleMainWindowShortcut);
+    void registerGlobalShortcut(tauriShortcut, (event) => {
+      if (event.state === "Pressed") {
+        void toggleMainWindowVisibility();
+      }
+    }).catch((err) => {
+      toast.error("注册全局快捷键失败", { description: String(err) });
+    });
+
+    return () => {
+      void unregisterGlobalShortcut(tauriShortcut).catch(() => {});
+    };
+  }, [settingsLoaded, toggleMainWindowShortcut]);
+
+  useEffect(() => {
+    if (!IN_TAURI) return;
+
+    let unlistenToggle: (() => void) | null = null;
+    let unlistenExit: (() => void) | null = null;
+
+    void (async () => {
+      unlistenToggle = await listen("app-toggle-window", () => {
+        void toggleMainWindowVisibility();
+      });
+      unlistenExit = await listen("app-exit-requested", () => {
+        void requestAppExit();
+      });
+    })();
+
+    return () => {
+      unlistenToggle?.();
+      unlistenExit?.();
+    };
+  }, [requestAppExit]);
+
+  useEffect(() => {
+    if (!bootstrapped || appLaunchHandledRef.current) return;
+    appLaunchHandledRef.current = true;
+
+    const launchProjects = getProjectsForAppLaunch(useProjectStore.getState().projects);
+    for (const project of launchProjects) {
+      void launchProjectSession(project, "app-launch");
+    }
+  }, [bootstrapped, launchProjectSession]);
+
+  useEffect(() => {
+    if (!bootstrapped) return;
+
+    const timeouts = new Map<string, number>();
+    let disposed = false;
+
+    const scheduleProject = (project: Project) => {
+      const validation = validateCronExpression(project.cron_expression);
+      if (!validation.valid) {
+        return;
+      }
+
+      const nextRunAt = getNextCronRunAt(validation.normalized);
+      if (!nextRunAt) {
+        return;
+      }
+
+      const delay = Math.max(1000, nextRunAt - Date.now());
+      const timeoutId = window.setTimeout(async () => {
+        if (disposed) return;
+        try {
+          await launchProjectSession(project, "cron");
+        } finally {
+          if (!disposed) {
+            scheduleProject(project);
+          }
+        }
+      }, delay);
+      timeouts.set(project.id, timeoutId);
+    };
+
+    for (const project of getProjectsForCron(projects)) {
+      scheduleProject(project);
+    }
+
+    return () => {
+      disposed = true;
+      for (const timeoutId of timeouts.values()) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [bootstrapped, projects, launchProjectSession]);
 
   useEffect(() => {
     if (!IN_TAURI) return;
     const appWindow = getCurrentWindow();
+
     void (async () => {
       try {
         if (viewMode !== "compact") {
@@ -101,6 +283,7 @@ function App() {
           restoreWindowWidthRef.current = null;
           return;
         }
+
         if (restoreWindowWidthRef.current == null) {
           restoreWindowWidthRef.current = window.innerWidth;
         }

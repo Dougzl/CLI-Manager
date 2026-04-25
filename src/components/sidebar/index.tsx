@@ -8,6 +8,7 @@ import { ConfigModal } from "../ConfigModal";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { SettingsModal } from "../SettingsModal";
 import { openWindowsTerminal } from "../../lib/externalTerminal";
+import { getProjectShell, getProjectStartupCommand, getProjectTitle, parseProjectEnvVars } from "../../lib/projectLaunch";
 import { TreeContext, type TreeActions } from "./TreeContext";
 import { Portal } from "../ui/Portal";
 import { toast } from "sonner";
@@ -358,28 +359,22 @@ export function Sidebar({ onOpenStats, compactMode = false }: SidebarProps) {
     await openWindowsTerminal(
       items.map((project) => ({
         cwd: project.path,
-        title: project.cli_tool ? `${project.name} (${project.cli_tool})` : project.name,
-        startupCmd: project.startup_cmd || project.cli_tool || undefined,
+        title: getProjectTitle(project),
+        startupCmd: getProjectStartupCommand(project),
         shell: project.shell || undefined,
       }))
     );
   }, []);
 
   const openProjectInternal = async (project: Project) => {
-    const title = project.cli_tool ? `${project.name} (${project.cli_tool})` : project.name;
-    let envVars: Record<string, string> | undefined;
-    try {
-      const parsed = JSON.parse(project.env_vars);
-      if (typeof parsed === "object" && parsed !== null && Object.keys(parsed).length > 0) {
-        envVars = parsed;
-      }
-    } catch {
-      // ignore invalid env json
-    }
-
-    const cmd = project.startup_cmd || project.cli_tool || undefined;
-    const shell = project.shell && project.shell !== "powershell" ? project.shell : undefined;
-    await createSession(project.id, project.path, title, cmd, envVars, shell);
+    await createSession(
+      project.id,
+      project.path,
+      getProjectTitle(project),
+      getProjectStartupCommand(project),
+      parseProjectEnvVars(project),
+      getProjectShell(project)
+    );
   };
 
   const openProjects = async (items: Project[]) => {

@@ -23,6 +23,16 @@
     "store:default",
     "log:default",
     "shell:default",
-    "dialog:default"
+    "dialog:default",
+    "core:window:allow-hide",
+    "core:window:allow-show",
+    "core:window:allow-unminimize",
+    "core:window:allow-is-minimized",
+    "core:window:allow-is-visible",
+    "core:window:allow-set-focus",
+    "autostart:default",
+    "global-shortcut:allow-is-registered",
+    "global-shortcut:allow-register",
+    "global-shortcut:allow-unregister"
   ]
 }

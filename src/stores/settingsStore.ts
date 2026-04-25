@@ -9,7 +9,13 @@ export type DarkThemePalette = "night-indigo" | "forest-night" | "graphite-red" 
 export type TerminalThemeMode = "follow-app" | "independent";
 export type SidebarDensity = "compact" | "comfortable";
 export type ViewMode = "standard" | "compact";
-export type ShortcutAction = "newTerminal" | "closeTerminal" | "nextTab" | "prevTab" | "commandPalette";
+export type ShortcutAction =
+  | "newTerminal"
+  | "closeTerminal"
+  | "nextTab"
+  | "prevTab"
+  | "commandPalette"
+  | "toggleMainWindow";
 export type KeyboardShortcutMap = Record<ShortcutAction, string>;
 
 interface Settings {
@@ -23,6 +29,8 @@ interface Settings {
   historySidebarWidth: number;
   useExternalTerminal: boolean;
   debugMode: boolean;
+  launchAtStartup: boolean;
+  minimizeToTray: boolean;
   terminalThemeMode: TerminalThemeMode;
   terminalThemeName: string;
   sidebarDensity: SidebarDensity;
@@ -50,6 +58,8 @@ const DEFAULTS: Settings = {
   historySidebarWidth: 300,
   useExternalTerminal: false,
   debugMode: false,
+  launchAtStartup: false,
+  minimizeToTray: true,
   terminalThemeMode: "follow-app",
   terminalThemeName: "auto",
   sidebarDensity: "comfortable",
@@ -60,6 +70,7 @@ const DEFAULTS: Settings = {
     nextTab: "Ctrl+Tab",
     prevTab: "Ctrl+Shift+Tab",
     commandPalette: "Ctrl+P",
+    toggleMainWindow: "Ctrl+Alt+Space",
   },
 };
 

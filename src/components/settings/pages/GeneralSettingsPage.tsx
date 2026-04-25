@@ -157,6 +157,8 @@ export function GeneralSettingsPage() {
   const sidebarDensity = useSettingsStore((s) => s.sidebarDensity);
   const useExternalTerminal = useSettingsStore((s) => s.useExternalTerminal);
   const debugMode = useSettingsStore((s) => s.debugMode);
+  const launchAtStartup = useSettingsStore((s) => s.launchAtStartup);
+  const minimizeToTray = useSettingsStore((s) => s.minimizeToTray);
   const setTheme = useSettingsStore((s) => s.setTheme);
   const update = useSettingsStore((s) => s.update);
 
@@ -319,6 +321,35 @@ export function GeneralSettingsPage() {
               >
                 <span className="switch-thumb" />
               </button>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-on-surface-variant">开机静默启动</span>
+              <button
+                className="switch ui-focus-ring"
+                data-on={launchAtStartup ? "true" : "false"}
+                onClick={() => update("launchAtStartup", !launchAtStartup)}
+                aria-label={launchAtStartup ? "关闭开机静默启动" : "开启开机静默启动"}
+                aria-pressed={launchAtStartup}
+              >
+                <span className="switch-thumb" />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-on-surface-variant">最小化到托盘</span>
+              <button
+                className="switch ui-focus-ring"
+                data-on={minimizeToTray ? "true" : "false"}
+                onClick={() => update("minimizeToTray", !minimizeToTray)}
+                aria-label={minimizeToTray ? "关闭最小化到托盘" : "开启最小化到托盘"}
+                aria-pressed={minimizeToTray}
+              >
+                <span className="switch-thumb" />
+              </button>
+            </div>
+
+            <div className="rounded-lg border border-border bg-bg-tertiary/40 px-3 py-2 text-[11px] text-text-muted">
+              开启后：点击最小化或关闭会隐藏到托盘；若同时开启开机启动，应用将以静默后台方式启动。
             </div>
 
             <div className="flex items-center justify-between">

@@ -6,8 +6,47 @@ mod webdav;
 mod sync;
 
 use log::LevelFilter;
-use tauri_plugin_sql::{Builder as SqlBuilder, Migration, MigrationKind};
+use tauri::{Emitter, Manager};
 use tauri_plugin_log::{Builder as LogBuilder, Target, TargetKind, TimezoneStrategy};
+use tauri_plugin_sql::{Builder as SqlBuilder, Migration, MigrationKind};
+
+#[cfg(desktop)]
+fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
+    use tauri::menu::{Menu, MenuItem};
+    use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+
+    let toggle_item =
+        MenuItem::with_id(app, "toggle-main-window", "显示 / 隐藏主页", true, None::<&str>)?;
+    let quit_item = MenuItem::with_id(app, "quit-app", "退出", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&toggle_item, &quit_item])?;
+
+    TrayIconBuilder::with_id("main-tray")
+        .tooltip("CLI-Manager")
+        .menu(&menu)
+        .show_menu_on_left_click(false)
+        .on_menu_event(|app, event| match event.id.as_ref() {
+            "toggle-main-window" => {
+                let _ = app.emit("app-toggle-window", ());
+            }
+            "quit-app" => {
+                let _ = app.emit("app-exit-requested", ());
+            }
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                let _ = tray.app_handle().emit("app-toggle-window", ());
+            }
+        })
+        .build(app)?;
+
+    Ok(())
+}
 
 fn migrations() -> Vec<Migration> {
     vec![
@@ -128,6 +167,15 @@ fn migrations() -> Vec<Migration> {
             ",
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 8,
+            description: "add_project_startup_fields",
+            sql: "
+                ALTER TABLE projects ADD COLUMN startup_mode TEXT NOT NULL DEFAULT 'manual';
+                ALTER TABLE projects ADD COLUMN cron_expression TEXT NOT NULL DEFAULT '';
+            ",
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
@@ -161,16 +209,32 @@ pub fn run() {
                 ])
                 .build(),
         )
-        .setup(move |_| {
+        .setup(move |app| {
             log::set_max_level(log_level);
             log::info!(
                 "CLI-Manager started (log_level={})",
-                if log_level == LevelFilter::Debug { "debug" } else { "info" }
+                if log_level == LevelFilter::Debug {
+                    "debug"
+                } else {
+                    "info"
+                }
             );
+
+            #[cfg(desktop)]
+            setup_tray(app)?;
+
+            if std::env::args().any(|arg| arg == "--autostart") {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.hide();
+                }
+            }
+
             Ok(())
         })
         .plugin(tauri_plugin_dialog::init())
         .manage(pty::manager::PtyManager::new())
+        .plugin(tauri_plugin_autostart::Builder::new().args(["--autostart"]).build())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(

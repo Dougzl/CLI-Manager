@@ -12,6 +12,7 @@ const SHORTCUT_LABELS: Record<ShortcutAction, string> = {
   nextTab: "下一个标签",
   prevTab: "上一个标签",
   commandPalette: "命令面板",
+  toggleMainWindow: "显示 / 隐藏主页",
 };
 
 const DEFAULT_SHORTCUTS: KeyboardShortcutMap = {
@@ -20,6 +21,7 @@ const DEFAULT_SHORTCUTS: KeyboardShortcutMap = {
   nextTab: "Ctrl+Tab",
   prevTab: "Ctrl+Shift+Tab",
   commandPalette: "Ctrl+P",
+  toggleMainWindow: "Ctrl+Alt+Space",
 };
 
 interface ShortcutSettingsPageProps {

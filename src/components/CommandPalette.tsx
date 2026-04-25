@@ -9,6 +9,7 @@ import { useHistoryStore } from "../stores/historyStore";
 import { toast } from "sonner";
 import { logError } from "../lib/logger";
 import { openWindowsTerminal } from "../lib/externalTerminal";
+import { getProjectShell, getProjectStartupCommand, getProjectTitle, parseProjectEnvVars } from "../lib/projectLaunch";
 
 export const useCommandPaletteStore = create<{
   isOpen: boolean;
@@ -151,26 +152,23 @@ export function CommandPalette() {
         description: p.path,
         category: "项目",
         action: () => {
-          const cmd = p.startup_cmd || p.cli_tool || undefined;
-          const shell = p.shell && p.shell !== "powershell" ? p.shell : undefined;
+          const cmd = getProjectStartupCommand(p);
           if (viewMode === "compact") {
             void openWindowsTerminal([{
               cwd: p.path,
-              title: p.cli_tool ? `${p.name} (${p.cli_tool})` : p.name,
+              title: getProjectTitle(p),
               startupCmd: cmd,
               shell: p.shell || undefined,
             }]);
             return;
           }
-          let envVars: Record<string, string> | undefined;
-          try {
-            const parsed = JSON.parse(p.env_vars || "{}");
-            if (Object.keys(parsed).length > 0) envVars = parsed;
-          } catch { /* ignore */ }
           createSession(
-            p.id, p.path,
-            p.cli_tool ? `${p.name} (${p.cli_tool})` : p.name,
-            cmd, envVars, shell,
+            p.id,
+            p.path,
+            getProjectTitle(p),
+            cmd,
+            parseProjectEnvVars(p),
+            getProjectShell(p),
           );
         },
       });

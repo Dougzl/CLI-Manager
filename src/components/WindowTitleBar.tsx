@@ -3,12 +3,15 @@ import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Copy, Minus, Square, X } from "lucide-react";
 import { logWarn } from "../lib/logger";
+import { useSettingsStore } from "../stores/settingsStore";
+import { hideMainWindowToTray } from "../lib/windowVisibility";
 import appIcon32 from "../assets/app-icon-32.png";
 
 const IN_TAURI = isTauri();
 
 export function WindowTitleBar() {
   const [maximized, setMaximized] = useState(false);
+  const minimizeToTray = useSettingsStore((s) => s.minimizeToTray);
 
   useEffect(() => {
     if (!IN_TAURI) return;
@@ -75,7 +78,7 @@ export function WindowTitleBar() {
             className="titlebar-btn"
             aria-label="最小化"
             title="最小化"
-            onClick={() => runWindowAction(() => getCurrentWindow().minimize())}
+            onClick={() => runWindowAction(() => (minimizeToTray ? hideMainWindowToTray() : getCurrentWindow().minimize()))}
           >
             <Minus size={14} />
           </button>

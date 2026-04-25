@@ -2,8 +2,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useProjectStore } from "../stores/projectStore";
-import type { Project, Group } from "../lib/types";
+import type { Project, Group, ProjectStartupMode } from "../lib/types";
 import { SHELL_OPTIONS } from "../lib/types";
+import { validateCronExpression } from "../lib/projectScheduler";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { ChevronDown } from "./icons";
 import { Portal } from "./ui/Portal";
@@ -35,6 +36,12 @@ export function ConfigModal({ project, cloneFrom, defaultGroupId, onClose }: Pro
   );
   const [cliTool, setCliTool] = useState(cloneFrom?.cli_tool ?? project?.cli_tool ?? "");
   const [startupCmd, setStartupCmd] = useState(cloneFrom?.startup_cmd ?? project?.startup_cmd ?? "");
+  const [startupMode, setStartupMode] = useState<ProjectStartupMode>(
+    cloneFrom?.startup_mode ?? project?.startup_mode ?? "manual"
+  );
+  const [cronExpression, setCronExpression] = useState(
+    cloneFrom?.cron_expression ?? project?.cron_expression ?? ""
+  );
   const [shell, setShell] = useState(cloneFrom?.shell ?? project?.shell ?? "powershell");
   const [envVarsText, setEnvVarsText] = useState(cloneFrom?.env_vars ?? project?.env_vars ?? "{}");
   const [error, setError] = useState("");
@@ -110,6 +117,15 @@ export function ConfigModal({ project, cloneFrom, defaultGroupId, onClose }: Pro
       return;
     }
 
+    const cronValidation =
+      startupMode === "cron" ? validateCronExpression(cronExpression) : null;
+    if (cronValidation && !cronValidation.valid) {
+      const description = cronValidation.error ?? "Cron 表达式无效";
+      setError(description);
+      toast.error("保存失败", { description });
+      return;
+    }
+
     setError("");
     if (isEdit) {
       setShowConfirmEdit(true);
@@ -128,6 +144,8 @@ export function ConfigModal({ project, cloneFrom, defaultGroupId, onClose }: Pro
           group_id: groupId,
           cli_tool: cliTool.trim(),
           startup_cmd: startupCmd.trim(),
+          startup_mode: startupMode,
+          cron_expression: startupMode === "cron" ? cronExpression.trim() : "",
           env_vars: envVarsText.trim(),
           shell,
         });
@@ -139,6 +157,8 @@ export function ConfigModal({ project, cloneFrom, defaultGroupId, onClose }: Pro
           group_id: groupId,
           cli_tool: cliTool.trim() || undefined,
           startup_cmd: startupCmd.trim() || undefined,
+          startup_mode: startupMode,
+          cron_expression: startupMode === "cron" ? cronExpression.trim() : undefined,
           env_vars: envVarsText.trim() || undefined,
           shell,
         });
@@ -240,6 +260,34 @@ export function ConfigModal({ project, cloneFrom, defaultGroupId, onClose }: Pro
           </div>
 
           <Field label="启动命令" value={startupCmd} onChange={setStartupCmd} placeholder="npm run dev" />
+          <div>
+            <label className="mb-1 block text-xs text-text-muted">启动模式</label>
+            <Select
+              value={startupMode}
+              onChange={(e) => setStartupMode(e.target.value as ProjectStartupMode)}
+              className="text-sm"
+            >
+              <option value="manual">手动启动</option>
+              <option value="app-launch">应用启动后自动启动</option>
+              <option value="cron">定时启动（Cron）</option>
+            </Select>
+          </div>
+
+          {startupMode === "cron" && (
+            <div>
+              <label className="mb-1 block text-xs text-text-muted">Cron 表达式</label>
+              <Input
+                type="text"
+                value={cronExpression}
+                onChange={(e) => setCronExpression(e.target.value)}
+                placeholder="*/30 * * * *"
+                className="text-sm"
+              />
+              <div className="mt-1 text-[11px] text-text-muted">
+                支持 5/6 段 Cron，如 <code>*/30 * * * *</code>（每 30 分钟）。每次命中都会新开一个终端。
+              </div>
+            </div>
+          )}
           <div>
             <label className="mb-1 block text-xs text-text-muted">环境变量（JSON）</label>
             <Textarea

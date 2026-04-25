@@ -144,7 +144,7 @@ export const useSyncStore = create<SyncStore>((set, get) => ({
       const db = await getDb();
 
       const projects = await db.select<Record<string, unknown>[]>(
-        "SELECT id, name, path, group_id, sort_order, cli_tool, startup_cmd, env_vars, shell FROM projects ORDER BY sort_order"
+        "SELECT id, name, path, group_id, sort_order, cli_tool, startup_cmd, startup_mode, cron_expression, env_vars, shell FROM projects ORDER BY sort_order"
       );
       const groups = await db.select<Record<string, unknown>[]>(
         "SELECT id, name, parent_id, sort_order FROM groups ORDER BY sort_order"
@@ -200,7 +200,7 @@ export const useSyncStore = create<SyncStore>((set, get) => ({
       const db = await getDb();
 
       const localProjects = await db.select<Record<string, unknown>[]>(
-        "SELECT id, name, path, group_id, sort_order, cli_tool, startup_cmd, env_vars, shell FROM projects ORDER BY sort_order"
+        "SELECT id, name, path, group_id, sort_order, cli_tool, startup_cmd, startup_mode, cron_expression, env_vars, shell FROM projects ORDER BY sort_order"
       );
       const localGroups = await db.select<Record<string, unknown>[]>(
         "SELECT id, name, parent_id, sort_order FROM groups ORDER BY sort_order"
@@ -318,8 +318,8 @@ async function applySyncData(db: Awaited<ReturnType<typeof getDb>>, data: SyncDa
     // Insert projects
     for (const project of data.data.projects) {
       await db.execute(
-        `INSERT INTO projects (id, name, path, group_id, sort_order, cli_tool, startup_cmd, env_vars, shell, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+        `INSERT INTO projects (id, name, path, group_id, sort_order, cli_tool, startup_cmd, startup_mode, cron_expression, env_vars, shell, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
         [
           project.id as string,
           project.name as string,
@@ -328,6 +328,8 @@ async function applySyncData(db: Awaited<ReturnType<typeof getDb>>, data: SyncDa
           project.sort_order as number,
           (project.cli_tool as string) ?? "",
           (project.startup_cmd as string) ?? "",
+          (project.startup_mode as string) ?? "manual",
+          (project.cron_expression as string) ?? "",
           (project.env_vars as string) ?? "{}",
           (project.shell as string) ?? "powershell",
           Date.now().toString(),
@@ -381,8 +383,8 @@ async function applySyncData(db: Awaited<ReturnType<typeof getDb>>, data: SyncDa
 
       for (const project of backupProjects) {
         await db.execute(
-          `INSERT INTO projects (id, name, path, group_id, sort_order, cli_tool, startup_cmd, env_vars, shell, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+          `INSERT INTO projects (id, name, path, group_id, sort_order, cli_tool, startup_cmd, startup_mode, cron_expression, env_vars, shell, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
           [
             project.id as string,
             project.name as string,
@@ -391,6 +393,8 @@ async function applySyncData(db: Awaited<ReturnType<typeof getDb>>, data: SyncDa
             project.sort_order as number,
             (project.cli_tool as string) ?? "",
             (project.startup_cmd as string) ?? "",
+            (project.startup_mode as string) ?? "manual",
+            (project.cron_expression as string) ?? "",
             (project.env_vars as string) ?? "{}",
             (project.shell as string) ?? "powershell",
             (project.created_at as string) ?? Date.now().toString(),
