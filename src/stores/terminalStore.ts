@@ -313,6 +313,11 @@ export const useTerminalStore = create<TerminalStore>((set, get) => ({
           skippedSessions.push(ps.title ?? `会话 ${i + 1}`);
           continue;
         }
+        // 跳过手动启动模式的项目 - 这些项目应该由用户在需要时手动启动
+        if (project.startup_mode === "manual") {
+          skippedSessions.push(`${ps.title ?? `会话 ${i + 1}`}（手动模式跳过）`);
+          continue;
+        }
         // 检查路径是否有效
         if (!projectHealth[ps.projectId]) {
           // 路径无效但仍创建终端，显示警告

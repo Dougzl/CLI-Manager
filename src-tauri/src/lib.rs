@@ -48,6 +48,29 @@ fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
     Ok(())
 }
 
+#[cfg(desktop)]
+fn apply_initial_window_visibility(
+    app: &tauri::App,
+    autostart_launch: bool,
+) -> tauri::Result<()> {
+    let Some(window) = app.get_webview_window("main") else {
+        log::warn!("main window not found during startup visibility setup");
+        return Ok(());
+    };
+
+    if autostart_launch {
+        log::info!(
+            "startup mode=autostart; keeping main window hidden for silent background launch"
+        );
+        return Ok(());
+    }
+
+    log::info!("startup mode=interactive; showing main window from Rust setup");
+    window.show()?;
+    window.set_focus()?;
+    Ok(())
+}
+
 fn migrations() -> Vec<Migration> {
     vec![
         Migration {
@@ -181,6 +204,7 @@ fn migrations() -> Vec<Migration> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let autostart_launch = std::env::args().any(|arg| arg == "--autostart");
     let debug_logs = cfg!(debug_assertions)
         || matches!(
             std::env::var("CLI_MANAGER_DEBUG")
@@ -221,12 +245,9 @@ pub fn run() {
             );
 
             #[cfg(desktop)]
-            setup_tray(app)?;
-
-            if std::env::args().any(|arg| arg == "--autostart") {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.hide();
-                }
+            {
+                setup_tray(app)?;
+                apply_initial_window_visibility(app, autostart_launch)?;
             }
 
             Ok(())

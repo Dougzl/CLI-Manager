@@ -268,8 +268,8 @@ export function ConfigModal({ project, cloneFrom, defaultGroupId, onClose }: Pro
               className="text-sm"
             >
               <option value="manual">手动启动</option>
-              <option value="app-launch">应用启动后自动启动</option>
-              <option value="cron">定时启动（Cron）</option>
+              <option value="app-launch">应用启动后启动</option>
+              <option value="cron">定时启动（Cron 表达式）</option>
             </Select>
           </div>
 
