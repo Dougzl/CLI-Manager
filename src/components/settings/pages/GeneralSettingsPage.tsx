@@ -349,7 +349,7 @@ export function GeneralSettingsPage() {
             </div>
 
             <div className="rounded-lg border border-border bg-bg-tertiary/40 px-3 py-2 text-[11px] text-text-muted">
-              开启后：点击最小化或关闭会隐藏到托盘；若同时开启开机启动，应用将以静默后台方式启动。
+              开启后：关闭、最小化或应用进入后台时会隐藏到托盘；按快捷键或点击托盘可显示窗口；若同时开启开机启动，应用将以静默后台方式启动。
             </div>
 
             <div className="flex items-center justify-between">

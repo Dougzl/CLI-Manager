@@ -134,7 +134,7 @@ export function TreeNodeItem({ node, depth, density, focusedNodeKey, onFocusNode
               </span>
             )}
           </span>
-          <span className="ui-tree-item-actions hidden shrink-0 items-center gap-0.5 group-hover/item:flex group-focus-within/item:flex">
+          <span className="ui-tree-item-actions flex shrink-0 items-center gap-0.5">
             <button onClick={(e) => { e.stopPropagation(); actions.onOpenProject(p); }} className="icon-btn" style={{ color: "var(--success)", opacity: 0.7 }} title="Open terminal">
               <Play size={14} strokeWidth={1.5} />
             </button>
@@ -211,7 +211,7 @@ export function TreeNodeItem({ node, depth, density, focusedNodeKey, onFocusNode
           <span className="ui-tree-leading-icon"><Folder size={16} strokeWidth={1.5} /></span>
           <span className="flex-1 text-left truncate">{g.name}</span>
           <span className="ui-tree-count-badge rounded-full px-1.5 text-[11px] font-medium">{childCount}</span>
-          <span className="ui-tree-item-actions hidden shrink-0 items-center gap-0.5 group-hover/grp:flex group-focus-within/grp:flex">
+          <span className="ui-tree-item-actions flex shrink-0 items-center gap-0.5">
             <button onClick={(e) => { e.stopPropagation(); actions.onStartGroup(g.id); }} className="icon-btn" style={{ color: "var(--success)", opacity: 0.7 }} title="启动本目录"><Play size={14} strokeWidth={1.5} /></button>
             <button onClick={(e) => { e.stopPropagation(); actions.onAddSubGroup(g.id); }} className="icon-btn" style={{ color: "var(--text-muted)", opacity: 0.7 }} title="Add sub-group"><FolderPlus size={14} strokeWidth={1.5} /></button>
             <button onClick={(e) => { e.stopPropagation(); actions.onAddProjectToGroup(g.id); }} className="icon-btn" style={{ color: "var(--success)", opacity: 0.7 }} title="Add project"><Plus size={12} strokeWidth={2} /></button>

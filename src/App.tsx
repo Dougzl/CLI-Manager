@@ -134,12 +134,42 @@ function App() {
     document.documentElement.setAttribute("data-dark-palette", darkThemePalette);
   }, [resolvedTheme, lightThemePalette, darkThemePalette]);
 
+  const hideToTrayRef = useRef(false);
+  const hideTimeoutRef = useRef<number | null>(null);
+
   useEffect(() => {
     if (!IN_TAURI) return;
     const appWindow = getCurrentWindow();
-    let unlistenPromise: Promise<() => void> | null = null;
+    let unlistenClose: Promise<() => void> | null = null;
+    let unlistenResize: (() => void) | null = null;
+    let unlistenFocus: (() => void) | null = null;
 
-    unlistenPromise = appWindow.onCloseRequested(async (event) => {
+    const hideToTrayIfNeeded = async () => {
+      if (!minimizeToTray || hideToTrayRef.current) return;
+      try {
+        if (await appWindow.isMinimized() || !(await appWindow.isVisible())) return;
+        hideToTrayRef.current = true;
+        await appWindow.hide();
+      } catch (err) {
+        logWarn("Failed to hide window to tray", err);
+      } finally {
+        hideToTrayRef.current = false;
+      }
+    };
+
+    const scheduleHideToTray = () => {
+      if (hideTimeoutRef.current !== null) {
+        window.clearTimeout(hideTimeoutRef.current);
+      }
+      hideTimeoutRef.current = window.setTimeout(async () => {
+        hideTimeoutRef.current = null;
+        if (!document.hasFocus()) {
+          await hideToTrayIfNeeded();
+        }
+      }, 150);
+    };
+
+    unlistenClose = appWindow.onCloseRequested(async (event) => {
       if (allowWindowCloseRef.current) {
         await useSessionStore.getState().clear();
         return;
@@ -154,8 +184,42 @@ function App() {
       await useSessionStore.getState().clear();
     });
 
+    void (async () => {
+      unlistenResize = await appWindow.onResized(async () => {
+        if (!minimizeToTray || hideToTrayRef.current) return;
+        try {
+          if (await appWindow.isMinimized()) {
+            hideToTrayRef.current = true;
+            await appWindow.hide();
+          }
+        } catch (err) {
+          logWarn("Failed to hide minimized window to tray", err);
+        } finally {
+          hideToTrayRef.current = false;
+        }
+      });
+    })();
+
+    void (async () => {
+      unlistenFocus = await appWindow.onFocusChanged(async ({ payload: focused }) => {
+        if (!focused) {
+          scheduleHideToTray();
+        } else {
+          if (hideTimeoutRef.current !== null) {
+            window.clearTimeout(hideTimeoutRef.current);
+            hideTimeoutRef.current = null;
+          }
+        }
+      });
+    })();
+
     return () => {
-      unlistenPromise?.then((fn) => fn()).catch(() => {});
+      unlistenClose?.then((fn) => fn()).catch(() => {});
+      unlistenResize?.();
+      unlistenFocus?.();
+      if (hideTimeoutRef.current !== null) {
+        window.clearTimeout(hideTimeoutRef.current);
+      }
     };
   }, [minimizeToTray]);
 
